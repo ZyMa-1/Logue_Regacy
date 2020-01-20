@@ -13,6 +13,36 @@ GRAVITY = 10
 FPS = 60
 clock = pygame.time.Clock()
 tick = 0
+"""
+# - block
+_ - platform (coming soon...)
+. - nothing
+
+@ - player
+@ - player
+
+one block - 40x40
+
+"""
+
+
+def load_and_generate_map(filename):  # return hero
+    filename = "data/" + filename
+    with open(filename, 'r') as mapFile:
+        level_map = [line.strip() for line in mapFile]
+    max_width = max(map(len, level_map))
+    level = list(map(lambda x: x.ljust(max_width, '.'), level_map))
+    player_flag = 0
+    player_x, player_y = 0, 0
+    for y in range(len(level)):
+        for x in range(len(level[y])):
+            if level[y][x] == '#':
+                Block(x, y)
+            if level[y][x] == '@' and not player_flag:
+                player_x, player_y = x, y
+                player_flag = 1
+    hero = Player(player_x, player_y)
+    return hero
 
 
 def load_image(name, colorkey=None):
@@ -35,11 +65,13 @@ def draw_main_screen():
 
 
 class Player(pygame.sprite.Sprite):
-    image = pygame.Surface([50, 100])
+    image = pygame.Surface([BLOCK_SIZE - 3, 2 * BLOCK_SIZE - 3])
     image.fill(pygame.Color("red"))
 
-    def __init__(self, x, y):
-        super().__init__()
+    def __init__(self, x, y):  # coordinates not in pixels
+        super().__init__(all_hero)
+        x *= BLOCK_SIZE
+        y *= BLOCK_SIZE
         self.vel_x = 5
         self.vel_y = 0
         self.image = Player.image
@@ -53,8 +85,11 @@ class Player(pygame.sprite.Sprite):
         self.rect.y += (-(self.vel_y ** 2) // GRAVITY if self.vel_y < 0 else (self.vel_y ** 2) // GRAVITY)
 
     def update(self, down, jump, left, right):
-        def horizontal_collision():
-            return 0 if pygame.sprite.spritecollideany(self, block_horizontal_borders) is None else 1
+        def horizontal_up_collision():
+            return 0 if pygame.sprite.spritecollideany(self, block_up_horizontal_borders) is None else 1
+
+        def horizontal_down_collision():
+            return 0 if pygame.sprite.spritecollideany(self, block_down_horizontal_borders) is None else 1
 
         def vertical_collision():
             return 0 if pygame.sprite.spritecollideany(self, block_vertical_borders) is None else 1
@@ -70,19 +105,15 @@ class Player(pygame.sprite.Sprite):
         if jump and not self.is_jump:
             self.vel_y = -MAX_VEL_Y * 2
             self.is_jump = True
-        self.rect.y += 1
-        if not self.is_jump and horizontal_collision():
+        self.gravity()
+        while horizontal_down_collision():
+            self.rect.y += 1
+            self.vel_y = 0
+            self.is_jump = True
+        while horizontal_up_collision():
             self.rect.y -= 1
             self.vel_y = 0
-        self.gravity()
-        if self.vel_y <= 0:
-            while horizontal_collision():
-                self.rect.y += 1
-                self.is_jump = True
-        else:
-            while horizontal_collision():
-                self.rect.y -= 1
-                self.is_jump = False
+            self.is_jump = False
         if down:
             pass
 
@@ -91,11 +122,13 @@ class Player(pygame.sprite.Sprite):
 
 
 class Block(pygame.sprite.Sprite):
-    image = pygame.Surface([80, 40])
+    image = pygame.Surface([BLOCK_SIZE, BLOCK_SIZE])
     image.fill(pygame.Color("white"))
 
-    def __init__(self, x, y):
-        pygame.sprite.Sprite.__init__(self)
+    def __init__(self, x, y):  # coordinates not in pixels
+        super().__init__(all_blocks)
+        x *= BLOCK_SIZE
+        y *= BLOCK_SIZE
         self.image = Block.image
         self.rect = self.image.get_rect()
         self.rect.x, self.rect.y = x, y
@@ -106,8 +139,8 @@ class Block(pygame.sprite.Sprite):
         border4 = Border(x, y + h, x + w, y + h)
         block_vertical_borders.add(border1)
         block_vertical_borders.add(border2)
-        block_horizontal_borders.add(border3)
-        block_horizontal_borders.add(border4)
+        block_up_horizontal_borders.add(border3)
+        block_down_horizontal_borders.add(border4)
         # x, y, w, h = self.rect.x, self.rect.y, self.rect.w, self.rect.h
 
 
@@ -127,19 +160,9 @@ all_hero = pygame.sprite.Group()
 all_blocks = pygame.sprite.Group()
 all_enemies = pygame.sprite.Group()
 block_vertical_borders = pygame.sprite.Group()
-block_horizontal_borders = pygame.sprite.Group()
-hero = Player(0, 360)
-all_hero.add(hero)
-temp_x = 0
-for i in range(5):
-    block = Block(temp_x, 460)
-    all_blocks.add(block)
-    temp_x += 80
-temp_x = 500
-for i in range(4):
-    block = Block(temp_x, 250)
-    all_blocks.add(block)
-    temp_x += 80
+block_down_horizontal_borders = pygame.sprite.Group()
+block_up_horizontal_borders = pygame.sprite.Group()
+hero = load_and_generate_map("map.txt")
 
 while running:
     for event in pygame.event.get():
