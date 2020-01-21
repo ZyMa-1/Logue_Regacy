@@ -7,6 +7,8 @@ size = 800, 500
 screen = pygame.display.set_mode(size)
 pygame.display.set_caption("Logue Regacy")
 
+ATTACK_TIME = 1000  # in milliseconds
+ATTACK_COOLDOWN = 1000  # in milliseconds
 BLOCK_SIZE = 50  # размер одного блока
 FALLING_MAX = -10
 FALLING_SPEED = 1
@@ -99,6 +101,9 @@ def gravitation(entity):
 
 def draw_main_screen():
     screen.fill(pygame.Color("black"))
+    if hero.is_attack:
+        hero.def_attack()
+        hero.attack.draw(screen)
     all_blocks.draw(screen)
     all_enemies.draw(screen)
     all_hero.draw(screen)
@@ -121,6 +126,21 @@ class Player(pygame.sprite.Sprite):
         self.right = True
         self.left = False
         self.standing = True
+        self.attack = self.attack = pygame.sprite.Group()
+        self.is_attack = False
+
+    def def_attack(self):
+        attack_sprite = pygame.sprite.Sprite()
+        attack_sprite.image = pygame.Surface([BLOCK_SIZE - 2, 2 * BLOCK_SIZE - 2])
+        pygame.draw.rect(attack_sprite.image, (0, 0, 255), (0, 0, BLOCK_SIZE - 2, BLOCK_SIZE * 2 - 2))
+        if self.right:
+            attack_sprite.rect = pygame.Rect(self.rect.x + self.rect.w - 1, self.rect.y + 1, BLOCK_SIZE - 2,
+                                             2 * BLOCK_SIZE - 2)
+        else:
+            attack_sprite.rect = pygame.Rect(self.rect.x - self.rect.w + 2, self.rect.y + 1, BLOCK_SIZE - 2,
+                                             2 * BLOCK_SIZE - 2)
+        self.attack.empty()
+        self.attack.add(attack_sprite)
 
     def update(self, down=False):
         if down:
@@ -165,11 +185,21 @@ block_vertical_borders = pygame.sprite.Group()
 block_down_horizontal_borders = pygame.sprite.Group()
 block_up_horizontal_borders = pygame.sprite.Group()
 hero = load_and_generate_map("map.txt")
+can_attack = True
 
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        if event.type == 1:
+            if hero.is_attack:
+                hero.is_attack = False
+                can_attack = False
+                pygame.event.clear(1)
+                pygame.time.set_timer(1, ATTACK_COOLDOWN)
+            else:
+                can_attack = True
+                pygame.event.clear(1)
     keys = pygame.key.get_pressed()
     if keys[pygame.K_UP] and not hero.is_jump and pygame.sprite.spritecollideany(hero, block_up_horizontal_borders):
         hero.is_jump = True
@@ -188,11 +218,13 @@ while running:
         hero.rect.x += hero.vel_x
         while vertical_collision(hero):
             hero.rect.x -= 1
-    draw_main_screen()
+    if keys[pygame.K_j] and can_attack and not hero.is_attack:
+        hero.is_attack = True
+        pygame.time.set_timer(1, ATTACK_TIME)
     hero.update()
     gravitation(hero)
+    draw_main_screen()
     clock.tick(FPS)
-    pygame.draw.rect(screen, pygame.Color("green"), (hero.rect.x, hero.rect.y, hero.rect.width, hero.rect.height), 1)
     pygame.display.flip()
     tick += 1
 
