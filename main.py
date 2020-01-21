@@ -3,124 +3,197 @@ import os
 import random
 
 pygame.init()
-size = 500, 500
+size = 800, 500
 screen = pygame.display.set_mode(size)
 pygame.display.set_caption("Logue Regacy")
 
 BLOCK_SIZE = 50  # размер одного блока
-FALLING_SPEED = 1  # скорость падения на сколько меняется
-FALLING_MAX = -5  # макс скорость падения
-
-
+FALLING_MAX = -10
+FALLING_SPEED = 1
+FPS = 60
 clock = pygame.time.Clock()
+tick = 0
+"""
+# - block
+_ - platform (coming soon...)
+. - nothing
+@ - player
+@ - player
+one block - 40x40
+"""
 
 
-class Player(pygame.sprite.Sprite):
-    def __init__(self, x, y, width, height):
-        super().__init__()
-        self.width = width
-        self.height = height
-        self.vel = 5
-        self.isJump = False
-        self.jumpCount = FALLING_MAX
-        self.rect = pygame.Rect(x - 1, y - 1, self.width + 2, self.height + 2)
-        self.image = pygame.Surface([BLOCK_SIZE, BLOCK_SIZE * 2])
-        pygame.draw.rect(self.image, (255, 0, 0), (0, 0, BLOCK_SIZE, BLOCK_SIZE * 2))
+def horizontal_up_collision(item):
+    return 0 if pygame.sprite.spritecollideany(item, block_up_horizontal_borders) is None else 1
+
+
+def horizontal_down_collision(item):
+    return 0 if pygame.sprite.spritecollideany(item, block_down_horizontal_borders) is None else 1
+
+
+def vertical_collision(item):
+    return 0 if pygame.sprite.spritecollideany(item, block_vertical_borders) is None else 1
+
+
+def load_and_generate_map(filename):  # return hero
+    filename = os.path.join("data", filename)
+    with open(filename, 'r') as mapFile:
+        level_map = [line.strip() for line in mapFile]
+    max_width = max(map(len, level_map))
+    level = list(map(lambda x: x.ljust(max_width, '.'), level_map))
+    player_flag = 0
+    player_x, player_y = 0, 0
+    for y in range(len(level)):
+        for x in range(len(level[y])):
+            if level[y][x] == '#':
+                Block(x, y)
+            if level[y][x] == '@' and not player_flag:
+                player_x, player_y = x, y
+                player_flag = 1
+    hero = Player(player_x, player_y)
+    return hero
+
+
+def load_image(name, colorkey=None):
+    fullname = os.path.join('data', name)
+    image = pygame.image.load(fullname).convert_alpha()
+    if colorkey is not None:
+        if colorkey == -1:
+            colorkey = image.get_at((0, 0))
+        image.set_colorkey(colorkey)
+    else:
+        image = image.convert_alpha()
+    return image
+
+
+def gravitation(entity):
+    if horizontal_down_collision(entity):
+        while horizontal_down_collision(entity):
+            entity.rect.y += 1
+        entity.vel_y = -1
+        entity.rect.y -= entity.vel_y
+    elif horizontal_up_collision(entity) and entity.is_jump is True and entity.standing is False:
+        entity.is_jump = False
+        entity.vel_y = FALLING_MAX
+        while horizontal_up_collision(entity):
+            entity.rect.y -= 1
+            entity.standing = True
+        entity.rect.y += 1
+    elif not horizontal_down_collision(entity) and not horizontal_up_collision(entity):
+        entity.standing = False
+        entity.is_jump = True
+        entity.rect.y -= entity.vel_y
+        if entity.vel_y > FALLING_MAX:
+            entity.vel_y -= FALLING_SPEED
+
+        if horizontal_up_collision(entity):
+            while horizontal_up_collision(entity):
+                entity.rect.y -= 1
+            entity.rect.y += 1
+        elif horizontal_down_collision(entity):
+            while horizontal_down_collision(entity):
+                entity.rect.y += 1
+            entity.vel_y = -1
+
 
 
 def draw_main_screen():
-    screen.fill((0, 0, 0))
-    all_entities.draw(screen)
+    screen.fill(pygame.Color("black"))
     all_blocks.draw(screen)
-    pygame.display.update()
+    all_enemies.draw(screen)
+    all_hero.draw(screen)
 
 
-def block_collision(item):  # проверка врезания
-    # 0 - free falling | 1 - up | 3 - down | 2 - right | 4 - left|
-    directions = []
-    for blocc in pygame.sprite.spritecollide(item, all_blocks, 0):
-        x = blocc.rect.x
-        y = blocc.rect.y
-        if y <= item.rect.y and x - item.rect.width + item.vel < item.rect.x < x + blocc.rect.width:
-            directions.append(1)
-            item.rect.y = y + blocc.rect.height
-        elif y >= item.rect.y and x - item.rect.width + item.vel < item.rect.x < x + blocc.rect.width:
-            directions.append(3)
-            item.rect.y = y - item.rect.height + 1
+class Player(pygame.sprite.Sprite):
+    image = pygame.Surface([BLOCK_SIZE - 3, 2 * BLOCK_SIZE - 3])
+    image.fill(pygame.Color("red"))
+
+    def __init__(self, x, y):  # coordinates not in pixels
+        super().__init__(all_hero)
+        x *= BLOCK_SIZE
+        y *= BLOCK_SIZE
+        self.vel_x = 5
+        self.vel_y = FALLING_MAX
+        self.rect = pygame.Rect(x, y, BLOCK_SIZE - 1, 2 * BLOCK_SIZE - 1)
+        self.image = pygame.Surface([BLOCK_SIZE - 1, 2 * BLOCK_SIZE - 1])
+        pygame.draw.rect(self.image, (255, 0, 0), (1, 1, BLOCK_SIZE - 2, BLOCK_SIZE * 2 - 2))
+        self.is_jump = False
+        self.right = True
+        self.left = False
+        self.standing = True
+
+    def update(self, down=False):
+        if down:
+            pass
+
+
+class Block(pygame.sprite.Sprite):
+    image = pygame.Surface([BLOCK_SIZE, BLOCK_SIZE])
+    image.fill(pygame.Color("white"))
+
+    def __init__(self, x, y):  # coordinates not in pixels
+        super().__init__(all_blocks)
+        x *= BLOCK_SIZE
+        y *= BLOCK_SIZE
+        self.image = Block.image
+        self.rect = self.image.get_rect()
+        self.rect.x, self.rect.y = x, y
+        w, h = self.rect.w, self.rect.h
+        block_vertical_borders.add(Border(x, y + 1, x, y + h - 2))
+        block_vertical_borders.add(Border(x + w, y + 1, x + w, y + h - 2))
+        block_up_horizontal_borders.add(Border(x + 1, y, x + w - 2, 1))
+        block_down_horizontal_borders.add(Border(x + 1, y + h, x + w - 2, 1))
+        # x, y, w, h = self.rect.x, self.rect.y, self.rect.w, self.rect.h
+
+
+class Border(pygame.sprite.Sprite):
+    def __init__(self, x1, y1, x2, y2):
+        pygame.sprite.Sprite.__init__(self)
+        if x1 == x2:
+            self.image = pygame.Surface([0, 0])
+            self.rect = pygame.Rect(x1, y1, 1, y2 - y1)
         else:
-            if item.rect.x < x:
-                directions.append(2)
-                item.rect.x = x - item.rect.width
-            elif item.rect.x >= x:
-                directions.append(4)
-                item.rect.x = x + blocc.rect.width
-    if 1 not in directions and 3 not in directions:
-        directions.append(0)
-        item.isJump = True
-    return directions
-
-
-def gravitation(item):  # движение предметов по игрику
-    directions = block_collision(item)
-    for dire in directions:
-        if dire == 0:
-            item.rect.y -= item.jumpCount
-            if item.jumpCount > FALLING_MAX:
-                item.jumpCount -= FALLING_SPEED
-        elif dire == 1:
-            item.jumpCount = -1
-            item.rect.y -= item.jumpCount
-        elif dire == 3 and item.isJump is True:
-            item.isJump = False
-            item.jumpCount = FALLING_MAX
+            self.image = pygame.Surface([0, 0])
+            self.rect = pygame.Rect(x1, y1, x2 - x1, 1)
 
 
 running = True
-hero = Player(0, 200, BLOCK_SIZE, BLOCK_SIZE * 2)
-
+all_hero = pygame.sprite.Group()
 all_blocks = pygame.sprite.Group()
-block = pygame.sprite.Sprite(all_blocks)
-block.image = pygame.Surface([400, 50])
-block.rect = pygame.Rect(0, 450, 400, 50)
-pygame.draw.rect(block.image, pygame.Color("white"), (0, 0, 400, 50))
-
-block2 = pygame.sprite.Sprite(all_blocks)
-block2.image = pygame.Surface([100, 50])
-block2.rect = pygame.Rect(400, 250, 100, 50)
-pygame.draw.rect(block2.image, pygame.Color("white"), (0, 0, 100, 50))
-
-all_entities = pygame.sprite.Group()
-
-all_entities.add(hero)
-
-hero_collision_direction = block_collision(hero)
+all_enemies = pygame.sprite.Group()
+block_vertical_borders = pygame.sprite.Group()
+block_down_horizontal_borders = pygame.sprite.Group()
+block_up_horizontal_borders = pygame.sprite.Group()
+hero = load_and_generate_map("map.txt")
 
 while running:
-    clock.tick(60)
-
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-
     keys = pygame.key.get_pressed()
-
-    if keys[pygame.K_LEFT] and hero.rect.x > 0 and 4 not in hero_collision_direction:  # налево
-        hero.rect.x -= hero.vel
-        if hero.rect.x < 0:
-            hero.rect.x = 0
-    if keys[pygame.K_RIGHT] and hero.rect.x < size[0] - hero.width and 2 not in hero_collision_direction:  # направо
-        hero.rect.x += hero.vel
-        if hero.rect.x > size[0] - hero.width:
-            hero.rect.x = size[0] - hero.width
-    if not hero.isJump:  # прыжок
-        if keys[pygame.K_SPACE]:
-            hero.isJump = True
-            hero.jumpCount = 20
-            hero.rect.y -= 2
-    for entity in all_entities:  # движение всех предметов по игрику
-        gravitation(entity)
+    if keys[pygame.K_UP] and not hero.is_jump and pygame.sprite.spritecollideany(hero, block_up_horizontal_borders):
+        hero.is_jump = True
+        hero.vel_y = -(FALLING_MAX * 2)
+        hero.rect.y -= 2
+        hero.standing = False
+    if keys[pygame.K_LEFT]:
+        hero.left = True
+        hero.right = False
+        hero.rect.x -= hero.vel_x
+        while vertical_collision(hero):
+            hero.rect.x += 1
+    if keys[pygame.K_RIGHT]:
+        hero.left = False
+        hero.right = True
+        hero.rect.x += hero.vel_x
+        while vertical_collision(hero):
+            hero.rect.x -= 1
     draw_main_screen()
-
-
+    hero.update()
+    gravitation(hero)
+    clock.tick(FPS)
+    pygame.draw.rect(screen, pygame.Color("green"), (hero.rect.x, hero.rect.y, hero.rect.width, hero.rect.height), 1)
+    pygame.display.flip()
+    tick += 1
 
 pygame.quit()
