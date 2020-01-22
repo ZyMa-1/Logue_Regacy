@@ -1,10 +1,11 @@
 import os
-
+import sys
 import pygame
 
 pygame.init()
 size = 800, 500
 screen = pygame.display.set_mode(size)
+settings_surface = pygame.Surface([800, 500])  # pause?
 pygame.display.set_caption("Logue Regacy")
 
 BLOCK_SIZE = 50  # размер одного блока
@@ -12,7 +13,6 @@ FALLING_MAX = -10
 FALLING_SPEED = 1
 FPS = 60
 clock = pygame.time.Clock()
-tick = 0
 """
 # - block
 _ - platform
@@ -22,6 +22,30 @@ _ - platform
 * - prujinka
 one block - 50x50
 """
+
+
+def start_menu():
+    main_surface = pygame.Surface([800, 500])
+    tick = 0
+    BOLD_FONT = "data\\CenturyGothic-Italic.ttf"
+    intro_text = "Press any key to continue"
+    fon = pygame.transform.scale(load_image('fon.jpg'), (800, 500))
+    main_surface.blit(fon, (0, 0))
+    font = pygame.font.Font(BOLD_FONT, 20)
+    intro_text_obj = font.render(intro_text, 1, pygame.Color("red"))
+    main_surface.blit(intro_text_obj, (400 - intro_text_obj.get_width() // 2, 400 - intro_text_obj.get_height() // 2))
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit(0)
+            elif event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
+                return
+        main_surface.set_alpha((tick ** 2) / 300)
+        screen.blit(main_surface, (0, 0))
+        pygame.display.flip()
+        clock.tick(FPS)
+        tick += 1
 
 
 def horizontal_up_collision(item):
@@ -243,6 +267,8 @@ block_up_horizontal_borders = pygame.sprite.Group()
 platform_horizontal_borders = pygame.sprite.Group()
 hero = load_and_generate_map("map.txt")
 
+start_menu()
+
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -278,6 +304,5 @@ while running:
     clock.tick(FPS)
     # pygame.draw.rect(screen, pygame.Color("green"), (hero.rect.x, hero.rect.y, hero.rect.width, hero.rect.height), 1)
     pygame.display.flip()
-    tick += 1
 
 pygame.quit()
