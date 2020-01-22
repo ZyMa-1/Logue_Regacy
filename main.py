@@ -25,6 +25,20 @@ one block - 40x40
 """
 
 
+def camera_adjustment():
+    x = round(hero.rect.x + 0.5 * hero.rect.w - size[0] * 0.5)
+    y = round(hero.rect.y + 0.5 * hero.rect.h - size[1] * 0.5)
+    if x < 0:
+        x = 0
+    elif x + size[0] > the_big_screen.get_width():
+        x = the_big_screen.get_width() - size[0]
+    if y < 0:
+        y = 0
+    elif y + size[1] > the_big_screen.get_height():
+        y = the_big_screen.get_height() - size[1]
+    return x, y
+
+
 def horizontal_up_collision(item):
     return 0 if pygame.sprite.spritecollideany(item, block_up_horizontal_borders) is None else 1
 
@@ -43,6 +57,7 @@ def load_and_generate_map(filename):  # return hero
         level_map = [line.strip() for line in mapFile]
     max_width = max(map(len, level_map))
     level = list(map(lambda x: x.ljust(max_width, '.'), level_map))
+    height = len(level)
     player_flag = 0
     player_x, player_y = 0, 0
     for y in range(len(level)):
@@ -53,7 +68,7 @@ def load_and_generate_map(filename):  # return hero
                 player_x, player_y = x, y
                 player_flag = 1
     hero = Player(player_x, player_y)
-    return hero
+    return hero, max_width, height
 
 
 def load_image(name, colorkey=None):
@@ -100,13 +115,17 @@ def gravitation(entity):
 
 
 def draw_main_screen():
-    screen.fill(pygame.Color("black"))
+    the_big_screen.fill(pygame.Color("black"))
     if hero.is_attack:
         hero.def_attack()
-        hero.attack.draw(screen)
-    all_blocks.draw(screen)
-    all_enemies.draw(screen)
-    all_hero.draw(screen)
+        hero.attack.draw(the_big_screen)
+    all_blocks.draw(the_big_screen)
+    all_enemies.draw(the_big_screen)
+    all_hero.draw(the_big_screen)
+    cutout_x, cutout_y = camera_adjustment()
+    cutout = pygame.Rect(cutout_x, cutout_y, size[0], size[1])
+    screen.blit(the_big_screen, (0, 0), cutout)
+    pygame.display.flip()
 
 
 class Player(pygame.sprite.Sprite):
@@ -184,8 +203,10 @@ all_enemies = pygame.sprite.Group()
 block_vertical_borders = pygame.sprite.Group()
 block_down_horizontal_borders = pygame.sprite.Group()
 block_up_horizontal_borders = pygame.sprite.Group()
-hero = load_and_generate_map("map.txt")
+hero, level_height, level_width = load_and_generate_map("map.txt")
+the_big_screen = pygame.Surface([level_height * BLOCK_SIZE, level_width * BLOCK_SIZE])
 can_attack = True
+
 
 while running:
     for event in pygame.event.get():
@@ -225,7 +246,6 @@ while running:
     gravitation(hero)
     draw_main_screen()
     clock.tick(FPS)
-    pygame.display.flip()
     tick += 1
 
 pygame.quit()
