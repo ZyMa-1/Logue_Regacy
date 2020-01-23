@@ -70,11 +70,10 @@ def camera_adjustment():
 def start_menu():
     main_surface = pygame.Surface([800, 500])
     tick = 0
-    ITALIC_FONT = "data\\CenturyGothic-Italic.ttf"
     intro_text = "Press any key to continue"
     fon = pygame.transform.scale(load_image('fon.jpg'), (800, 500))
     main_surface.blit(fon, (0, 0))
-    font = pygame.font.Font(ITALIC_FONT, 20)
+    font = pygame.font.Font("data\\CenturyGothic-Italic.ttf", 20)
     intro_text_obj = font.render(intro_text, 1, pygame.Color("red"))
     main_surface.blit(intro_text_obj, (400 - intro_text_obj.get_width() // 2, 400 - intro_text_obj.get_height() // 2))
     main_surface.blit(IMAGES["settings"], (725, 425))
@@ -92,7 +91,7 @@ def start_menu():
                     if dist(757, 457, x, y) <= 32:  # launch settings screen
                         return
                     if pygame.Rect.collidepoint(pygame.Rect(610, 410, 100, 100), x, y):  # launch leader_boards screen
-                        return
+                        leader_board()
         main_surface.set_alpha((tick ** 2) / 300)
         screen.blit(main_surface, (0, 0))
         pygame.display.flip()
@@ -124,6 +123,57 @@ def pause():
                 if dist(x, y, 200, 189) <= 32:
                     return
         screen.blit(main_surface, (main_surface_dx, main_surface_dy))
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+def leader_board():
+    scroll_y = 0
+    screen.fill(pygame.Color("black"))
+    filename = os.path.join("data", "leader_board.txt")
+    with open(filename, 'r') as mapFile:
+        leaders = [line.strip() for line in mapFile]
+    leaders = list(map(lambda x: x.split('-'), leaders))
+    leaders.sort(key=lambda x: int(x[1]), reverse=True)
+    leaders.insert(0, ['Player', 'Score'])
+    font = pygame.font.Font("data\\CenturyGothic.ttf", 30)
+    all_text = []
+    for i in range(len(leaders)):
+        text1 = font.render(leaders[i][0], 1, pygame.Color("white"))
+        text2 = font.render(leaders[i][1], 1, pygame.Color("white"))
+        all_text.append([text1, text2])
+    tile_width, tile_height = max(map(lambda x: max(x[0].get_width(), x[1].get_width()), all_text)), max(
+        map(lambda x: max(x[0].get_height(), x[1].get_height()), all_text))
+    tile_width += 30
+    tile_height += 30
+    print(tile_width, tile_height)
+    main_surface = pygame.Surface([tile_width * 2 + 10, tile_height * len(leaders) + 10])
+    x = 6
+    y = 6
+    for i in range(len(leaders)):
+        pygame.draw.rect(main_surface, pygame.Color("red"), (x, y, tile_width, tile_height), 5)
+        main_surface.blit(all_text[i][0], (x + (tile_width - all_text[i][0].get_width()) // 2, y + 15))
+        x += tile_width
+        pygame.draw.rect(main_surface, pygame.Color("red"), (x, y, tile_width, tile_height), 5)
+        main_surface.blit(all_text[i][1], (x + (tile_width - all_text[i][1].get_width()) // 2, y + 15))
+        x -= tile_width
+        y += tile_height
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit(0)
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                x, y = pygame.mouse.get_pos()
+                if event.button == 5 and tile_height * len(leaders) - 395 - scroll_y >= 0:
+                    scroll_y += 20
+                if event.button == 4 and scroll_y > 0:
+                    scroll_y -= 20
+                if event.button == 1 and dist(x, y, 52, 52) <= 32:
+                    return
+        screen.fill(pygame.Color("black"))
+        screen.blit(main_surface, (400 - tile_width, 55 - scroll_y))
+        screen.blit(IMAGES["back_arrow"], (20, 20))
         pygame.display.flip()
         clock.tick(FPS)
 
@@ -359,6 +409,7 @@ can_attack = True
 def init_images():
     pause_icon = load_image("pause-icon.png").convert_alpha()  # 64x64
     settings_icon = load_image("settings.png").convert_alpha()
+    back_arrow_icon = load_image("back_arrow.png").convert_alpha()
     leader_board_icon = load_image("leader_board_icon.png", (145, 160, 161)).convert_alpha()
     health_bar_0 = load_image("health_bar_0.png", (255, 255, 255)).convert_alpha()
     health_bar_1 = load_image("health_bar_1.png", (255, 255, 255)).convert_alpha()
@@ -371,6 +422,7 @@ def init_images():
     IMAGES["health_bar_3"] = health_bar_3
     IMAGES["settings"] = settings_icon
     IMAGES["leader_board"] = leader_board_icon
+    IMAGES["back_arrow"] = back_arrow_icon
 
 
 init_images()
