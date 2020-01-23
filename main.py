@@ -129,6 +129,7 @@ def pause():
 
 def leader_board():
     scroll_y = 0
+    tick = 0
     screen.fill(pygame.Color("black"))
     filename = os.path.join("data", "leader_board.txt")
     with open(filename, 'r') as mapFile:
@@ -146,7 +147,6 @@ def leader_board():
         map(lambda x: max(x[0].get_height(), x[1].get_height()), all_text))
     tile_width += 30
     tile_height += 30
-    print(tile_width, tile_height)
     main_surface = pygame.Surface([tile_width * 2 + 10, tile_height * len(leaders) + 10])
     x = 6
     y = 6
@@ -172,10 +172,13 @@ def leader_board():
                 if event.button == 1 and dist(x, y, 52, 52) <= 32:
                     return
         screen.fill(pygame.Color("black"))
+        main_surface.set_alpha((tick ** 2))
+        IMAGES["back_arrow"].set_alpha((tick ** 2) / 300)
         screen.blit(main_surface, (400 - tile_width, 55 - scroll_y))
         screen.blit(IMAGES["back_arrow"], (20, 20))
         pygame.display.flip()
         clock.tick(FPS)
+        tick += 1
 
 
 def horizontal_up_collision(item):
