@@ -77,13 +77,22 @@ def start_menu():
     font = pygame.font.Font(ITALIC_FONT, 20)
     intro_text_obj = font.render(intro_text, 1, pygame.Color("red"))
     main_surface.blit(intro_text_obj, (400 - intro_text_obj.get_width() // 2, 400 - intro_text_obj.get_height() // 2))
+    main_surface.blit(IMAGES["settings"], (725, 425))
+    main_surface.blit(IMAGES["leader_board"], (610, 410))
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit(0)
-            elif event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
+            if event.type == pygame.KEYDOWN:
                 return
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    x, y = pygame.mouse.get_pos()
+                    if dist(757, 457, x, y) <= 32:  # launch settings screen
+                        return
+                    if pygame.Rect.collidepoint(pygame.Rect(610, 410, 100, 100), x, y):  # launch leader_boards screen
+                        return
         main_surface.set_alpha((tick ** 2) / 300)
         screen.blit(main_surface, (0, 0))
         pygame.display.flip()
@@ -346,11 +355,11 @@ hero, level_width, level_height = load_and_generate_map("map.txt")
 the_big_screen = pygame.Surface([level_height * BLOCK_SIZE, level_width * BLOCK_SIZE])
 can_attack = True
 
-start_menu()
-
 
 def init_images():
     pause_icon = load_image("pause-icon.png").convert_alpha()  # 64x64
+    settings_icon = load_image("settings.png").convert_alpha()
+    leader_board_icon = load_image("leader_board_icon.png", (145, 160, 161)).convert_alpha()
     health_bar_0 = load_image("health_bar_0.png", (255, 255, 255)).convert_alpha()
     health_bar_1 = load_image("health_bar_1.png", (255, 255, 255)).convert_alpha()
     health_bar_2 = load_image("health_bar_2.png", (255, 255, 255)).convert_alpha()
@@ -360,9 +369,13 @@ def init_images():
     IMAGES["health_bar_1"] = health_bar_1
     IMAGES["health_bar_2"] = health_bar_2
     IMAGES["health_bar_3"] = health_bar_3
+    IMAGES["settings"] = settings_icon
+    IMAGES["leader_board"] = leader_board_icon
 
 
 init_images()
+start_menu()
+
 draw_overlapping_screen()
 
 while running:
