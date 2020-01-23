@@ -1,11 +1,10 @@
-import os
-import sys
 import pygame
+import os
+import random
 
 pygame.init()
 size = 800, 500
 screen = pygame.display.set_mode(size)
-settings_surface = pygame.Surface([800, 500])  # pause?
 pygame.display.set_caption("Logue Regacy")
 
 ATTACK_TIME = 1000  # in milliseconds
@@ -15,14 +14,14 @@ FALLING_MAX = -10
 FALLING_SPEED = 1
 FPS = 60
 clock = pygame.time.Clock()
+tick = 0
 """
 # - block
-_ - platform
+_ - platform (coming soon...)
 . - nothing
 @ - player
 @ - player
-* - prujinka
-one block - 50x50
+one block - 40x40
 """
 
 
@@ -40,30 +39,6 @@ def camera_adjustment():
     return x, y
 
 
-def start_menu():
-    main_surface = pygame.Surface([800, 500])
-    tick = 0
-    BOLD_FONT = "data\\CenturyGothic-Italic.ttf"
-    intro_text = "Press any key to continue"
-    fon = pygame.transform.scale(load_image('fon.jpg'), (800, 500))
-    main_surface.blit(fon, (0, 0))
-    font = pygame.font.Font(BOLD_FONT, 20)
-    intro_text_obj = font.render(intro_text, 1, pygame.Color("red"))
-    main_surface.blit(intro_text_obj, (400 - intro_text_obj.get_width() // 2, 400 - intro_text_obj.get_height() // 2))
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit(0)
-            elif event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
-                return
-        main_surface.set_alpha((tick ** 2) / 300)
-        screen.blit(main_surface, (0, 0))
-        pygame.display.flip()
-        clock.tick(FPS)
-        tick += 1
-
-
 def horizontal_up_collision(item):
     return 0 if pygame.sprite.spritecollideany(item, block_up_horizontal_borders) is None else 1
 
@@ -76,21 +51,13 @@ def vertical_collision(item):
     return 0 if pygame.sprite.spritecollideany(item, block_vertical_borders) is None else 1
 
 
-def platform_collision(item):
-    return 0 if pygame.sprite.spritecollideany(item, platform_horizontal_borders) is None else 1
-
-
-def prujinka_collision(item):
-    return 0 if pygame.sprite.spritecollideany(item, all_prujinks) is None else 1
-
-
 def load_and_generate_map(filename):  # return hero
     filename = os.path.join("data", filename)
     with open(filename, 'r') as mapFile:
         level_map = [line.strip() for line in mapFile]
-    max_width = max(max(map(len, level_map)), 16)
+    max_width = max(map(len, level_map))
     level = list(map(lambda x: x.ljust(max_width, '.'), level_map))
-    height = max(10, len(level))
+    height = len(level)
     player_flag = 0
     player_x, player_y = 0, 0
     for y in range(len(level)):
@@ -100,10 +67,6 @@ def load_and_generate_map(filename):  # return hero
             if level[y][x] == '@' and not player_flag:
                 player_x, player_y = x, y
                 player_flag = 1
-            if level[y][x] == '_':
-                Platform(x, y)
-            if level[y][x] == '*':
-                Prujinka(x, y)
     hero = Player(player_x, player_y)
     return hero, max_width, height
 
@@ -121,10 +84,6 @@ def load_image(name, colorkey=None):
 
 
 def gravitation(entity):
-    if entity.prujinka_jump and entity.vel_y > 0:
-        entity.rect.y -= entity.vel_y
-        if entity.vel_y > FALLING_MAX:
-            entity.vel_y -= FALLING_SPEED
     if horizontal_down_collision(entity):
         while horizontal_down_collision(entity):
             entity.rect.y += 1
@@ -152,19 +111,7 @@ def gravitation(entity):
             while horizontal_down_collision(entity):
                 entity.rect.y += 1
             entity.vel_y = -1
-    """print(platform_collision(entity.ground_border), platform_collision(entity), entity.ground_border.rect, 
-    entity.rect) """
-    if not platform_collision(entity.ground_border):
-        entity.is_down = False
-    if platform_collision(
-            entity.ground_border) and entity.is_jump is True and entity.standing is False and not entity.is_down and entity.vel_y < 0:
-        entity.is_jump = False
-        entity.vel_y = FALLING_MAX
-        while platform_collision(entity):
-            entity.rect.y -= 1
-            entity.standing = True
-        entity.rect.y += 1
-        return
+
 
 
 def draw_main_screen():
@@ -175,7 +122,6 @@ def draw_main_screen():
     all_blocks.draw(the_big_screen)
     all_enemies.draw(the_big_screen)
     all_hero.draw(the_big_screen)
-    all_prujinks.draw(the_big_screen)
     cutout_x, cutout_y = camera_adjustment()
     cutout = pygame.Rect(cutout_x, cutout_y, size[0], size[1])
     screen.blit(the_big_screen, (0, 0), cutout)
@@ -199,16 +145,8 @@ class Player(pygame.sprite.Sprite):
         self.right = True
         self.left = False
         self.standing = True
-        self.is_down = False
-        self.ground_border = Invisible_Rect(self.rect.x, self.rect.y + self.rect.h - 9, self.rect.x + self.rect.w,
-                                            self.rect.y + self.rect.h + 1)
         self.attack = self.attack = pygame.sprite.Group()
         self.is_attack = False
-        self.prujinka_jump = False
-
-    def update(self):
-        self.ground_border = Invisible_Rect(self.rect.x, self.rect.y + self.rect.h - 9, self.rect.x + self.rect.w,
-                                            self.rect.y + self.rect.h + 1)
 
     def def_attack(self):
         attack_sprite = pygame.sprite.Sprite()
@@ -223,13 +161,9 @@ class Player(pygame.sprite.Sprite):
         self.attack.empty()
         self.attack.add(attack_sprite)
 
-
-class Invisible_Rect(pygame.sprite.Sprite):
-    def __init__(self, x1, y1, x2, y2):
-        super().__init__()
-        self.image = pygame.Surface([0, 0])
-        self.image.fill(pygame.Color("blue"))
-        self.rect = pygame.Rect(x1, y1, x2 - x1, y2 - y1)
+    def update(self, down=False):
+        if down:
+            pass
 
 
 class Block(pygame.sprite.Sprite):
@@ -251,24 +185,9 @@ class Block(pygame.sprite.Sprite):
         # x, y, w, h = self.rect.x, self.rect.y, self.rect.w, self.rect.h
 
 
-class Platform(pygame.sprite.Sprite):
-    image = pygame.Surface([BLOCK_SIZE, BLOCK_SIZE // 5])
-    image.fill(pygame.Color("gray"))
-
-    def __init__(self, x, y):
-        super().__init__(all_blocks)
-        x *= BLOCK_SIZE
-        y *= BLOCK_SIZE
-        self.image = Platform.image
-        self.rect = self.image.get_rect()
-        self.rect.x, self.rect.y = x, y
-        w, h = self.rect.w, self.rect.h
-        platform_horizontal_borders.add(Border(x, y, x + w - 2, y))
-
-
 class Border(pygame.sprite.Sprite):
     def __init__(self, x1, y1, x2, y2):
-        super().__init__(all_blocks)
+        pygame.sprite.Sprite.__init__(self)
         if x1 == x2:
             self.image = pygame.Surface([0, 0])
             self.rect = pygame.Rect(x1, y1, 1, y2 - y1)
@@ -277,35 +196,17 @@ class Border(pygame.sprite.Sprite):
             self.rect = pygame.Rect(x1, y1, x2 - x1, 1)
 
 
-class Prujinka(pygame.sprite.Sprite):
-    image = pygame.Surface([BLOCK_SIZE, BLOCK_SIZE // 5])
-    image.fill(pygame.Color("blue"))
-
-    def __init__(self, x, y):
-        super().__init__(all_blocks, all_prujinks)
-        x *= BLOCK_SIZE
-        y *= BLOCK_SIZE
-        x += BLOCK_SIZE // 4
-        y += (BLOCK_SIZE * 4 // 5)
-        self.image = Prujinka.image
-        self.rect = self.image.get_rect()
-        self.rect.x, self.rect.y = x, y
-
-
 running = True
 all_hero = pygame.sprite.Group()
 all_blocks = pygame.sprite.Group()
 all_enemies = pygame.sprite.Group()
-all_prujinks = pygame.sprite.Group()
 block_vertical_borders = pygame.sprite.Group()
 block_down_horizontal_borders = pygame.sprite.Group()
 block_up_horizontal_borders = pygame.sprite.Group()
-platform_horizontal_borders = pygame.sprite.Group()
-hero, level_width, level_height  = load_and_generate_map("map.txt")
+hero, level_height, level_width = load_and_generate_map("map.txt")
 the_big_screen = pygame.Surface([level_height * BLOCK_SIZE, level_width * BLOCK_SIZE])
 can_attack = True
 
-start_menu()
 
 while running:
     for event in pygame.event.get():
@@ -321,7 +222,7 @@ while running:
                 can_attack = True
                 pygame.event.clear(1)
     keys = pygame.key.get_pressed()
-    if keys[pygame.K_UP] and not hero.is_jump and (horizontal_up_collision(hero) or platform_collision(hero)):
+    if keys[pygame.K_UP] and not hero.is_jump and pygame.sprite.spritecollideany(hero, block_up_horizontal_borders):
         hero.is_jump = True
         hero.vel_y = -(FALLING_MAX * 2)
         hero.rect.y -= 2
@@ -338,23 +239,13 @@ while running:
         hero.rect.x += hero.vel_x
         while vertical_collision(hero):
             hero.rect.x -= 1
-    if keys[pygame.K_DOWN]:
-        hero.is_down = True
     if keys[pygame.K_j] and can_attack and not hero.is_attack:
         hero.is_attack = True
         pygame.time.set_timer(1, ATTACK_TIME)
-    if prujinka_collision(hero):
-        hero.prujinka_jump = True
-        hero.is_jump = True
-        hero.standing = False
-        hero.vel_y = - int(FALLING_MAX * 2.5)
-    else:
-        hero.prujinka_jump = False
     hero.update()
     gravitation(hero)
     draw_main_screen()
     clock.tick(FPS)
-    # pygame.draw.rect(screen, pygame.Color("green"), (hero.rect.x, hero.rect.y, hero.rect.width, hero.rect.height), 1)
-    pygame.display.flip()
+    tick += 1
 
 pygame.quit()
