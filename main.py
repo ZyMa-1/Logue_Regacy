@@ -5,9 +5,9 @@ import pygame
 pygame.init()
 size = 800, 500
 screen = pygame.display.set_mode(size)
-settings_surface = pygame.Surface([800, 500])  # pause?
 pygame.display.set_caption("Logue Regacy")
-
+overlapping_screen = pygame.Surface([800, 500], pygame.SRCALPHA)
+overlapping_screen = overlapping_screen.convert_alpha()
 ATTACK_TIME = 1000  # in milliseconds
 ATTACK_COOLDOWN = 1000  # in milliseconds
 BLOCK_SIZE = 50  # размер одного блока
@@ -24,6 +24,33 @@ _ - platform
 * - prujinka
 one block - 50x50
 """
+
+IMAGES = dict()
+
+
+def draw_main_screen():
+    the_big_screen.fill(pygame.Color("black"))
+    if hero.is_attack:
+        hero.def_attack()
+        hero.attack.draw(the_big_screen)
+    all_blocks.draw(the_big_screen)
+    all_enemies.draw(the_big_screen)
+    all_hero.draw(the_big_screen)
+    all_prujinks.draw(the_big_screen)
+    cutout_x, cutout_y = camera_adjustment()
+    cutout = pygame.Rect(cutout_x, cutout_y, size[0], size[1])
+    screen.blit(the_big_screen, (0, 0), cutout)
+    screen.blit(overlapping_screen, (0, 0))
+    pygame.display.flip()
+
+
+def draw_overlapping_screen():
+    overlapping_screen.blit(IMAGES["pause-icon"], (10, 10))
+    overlapping_screen.blit(IMAGES[f"health_bar_{hero.hp}"], (80, 20))
+
+
+def dist(x1, y1, x2, y2):
+    return ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** .5
 
 
 def camera_adjustment():
@@ -43,11 +70,11 @@ def camera_adjustment():
 def start_menu():
     main_surface = pygame.Surface([800, 500])
     tick = 0
-    BOLD_FONT = "data\\CenturyGothic-Italic.ttf"
+    ITALIC_FONT = "data\\CenturyGothic-Italic.ttf"
     intro_text = "Press any key to continue"
     fon = pygame.transform.scale(load_image('fon.jpg'), (800, 500))
     main_surface.blit(fon, (0, 0))
-    font = pygame.font.Font(BOLD_FONT, 20)
+    font = pygame.font.Font(ITALIC_FONT, 20)
     intro_text_obj = font.render(intro_text, 1, pygame.Color("red"))
     main_surface.blit(intro_text_obj, (400 - intro_text_obj.get_width() // 2, 400 - intro_text_obj.get_height() // 2))
     while True:
@@ -62,6 +89,34 @@ def start_menu():
         pygame.display.flip()
         clock.tick(FPS)
         tick += 1
+
+
+def pause():
+    main_surface = pygame.Surface([400, 250])
+    main_surface_dx = 200
+    main_surface_dy = 125
+    main_surface.fill(pygame.Color("blue"))
+    for x in range(800):
+        for y in range(500):
+            r, g, b, a = screen.get_at((x, y))
+            screen.set_at((x, y), pygame.Color(r // 3, g // 3, b // 3, a))
+    resume_icon = load_image("continue-icon.png")
+    resume_icon.convert_alpha()
+    main_surface.blit(resume_icon, (168, 155))
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit(0)
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                x, y = pygame.mouse.get_pos()
+                x -= main_surface_dx
+                y -= main_surface_dy
+                if dist(x, y, 200, 189) <= 32:
+                    return
+        screen.blit(main_surface, (main_surface_dx, main_surface_dy))
+        pygame.display.flip()
+        clock.tick(FPS)
 
 
 def horizontal_up_collision(item):
@@ -167,21 +222,6 @@ def gravitation(entity):
         return
 
 
-def draw_main_screen():
-    the_big_screen.fill(pygame.Color("black"))
-    if hero.is_attack:
-        hero.def_attack()
-        hero.attack.draw(the_big_screen)
-    all_blocks.draw(the_big_screen)
-    all_enemies.draw(the_big_screen)
-    all_hero.draw(the_big_screen)
-    all_prujinks.draw(the_big_screen)
-    cutout_x, cutout_y = camera_adjustment()
-    cutout = pygame.Rect(cutout_x, cutout_y, size[0], size[1])
-    screen.blit(the_big_screen, (0, 0), cutout)
-    pygame.display.flip()
-
-
 class Player(pygame.sprite.Sprite):
     image = pygame.Surface([BLOCK_SIZE - 3, 2 * BLOCK_SIZE - 3])
     image.fill(pygame.Color("red"))
@@ -204,6 +244,7 @@ class Player(pygame.sprite.Sprite):
                                             self.rect.y + self.rect.h + 1)
         self.attack = self.attack = pygame.sprite.Group()
         self.is_attack = False
+        self.hp = 3
         self.prujinka_jump = False
 
     def update(self):
@@ -301,11 +342,28 @@ block_vertical_borders = pygame.sprite.Group()
 block_down_horizontal_borders = pygame.sprite.Group()
 block_up_horizontal_borders = pygame.sprite.Group()
 platform_horizontal_borders = pygame.sprite.Group()
-hero, level_width, level_height  = load_and_generate_map("map.txt")
+hero, level_width, level_height = load_and_generate_map("map.txt")
 the_big_screen = pygame.Surface([level_height * BLOCK_SIZE, level_width * BLOCK_SIZE])
 can_attack = True
 
 start_menu()
+
+
+def init_images():
+    pause_icon = load_image("pause-icon.png").convert_alpha()  # 64x64
+    health_bar_0 = load_image("health_bar_0.png", (255, 255, 255)).convert_alpha()
+    health_bar_1 = load_image("health_bar_1.png", (255, 255, 255)).convert_alpha()
+    health_bar_2 = load_image("health_bar_2.png", (255, 255, 255)).convert_alpha()
+    health_bar_3 = load_image("health_bar_3.png", (255, 255, 255)).convert_alpha()
+    IMAGES["pause-icon"] = pause_icon
+    IMAGES["health_bar_0"] = health_bar_0
+    IMAGES["health_bar_1"] = health_bar_1
+    IMAGES["health_bar_2"] = health_bar_2
+    IMAGES["health_bar_3"] = health_bar_3
+
+
+init_images()
+draw_overlapping_screen()
 
 while running:
     for event in pygame.event.get():
@@ -320,7 +378,14 @@ while running:
             else:
                 can_attack = True
                 pygame.event.clear(1)
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                x, y = pygame.mouse.get_pos()
+                if dist(x, y, 42, 42) <= 32:
+                    pause()
     keys = pygame.key.get_pressed()
+    if keys[pygame.K_ESCAPE]:
+        pause()
     if keys[pygame.K_UP] and not hero.is_jump and (horizontal_up_collision(hero) or platform_collision(hero)):
         hero.is_jump = True
         hero.vel_y = -(FALLING_MAX * 2)
@@ -353,6 +418,7 @@ while running:
     hero.update()
     gravitation(hero)
     draw_main_screen()
+    draw_overlapping_screen()
     clock.tick(FPS)
     # pygame.draw.rect(screen, pygame.Color("green"), (hero.rect.x, hero.rect.y, hero.rect.width, hero.rect.height), 1)
     pygame.display.flip()
