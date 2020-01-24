@@ -56,12 +56,12 @@ def dist(x1, y1, x2, y2):
 def camera_adjustment():
     x = round(hero.rect.x + 0.5 * hero.rect.w - size[0] * 0.5)
     y = round(hero.rect.y + 0.5 * hero.rect.h - size[1] * 0.5)
-    if x < 0:
-        x = 0
+    if x < BLOCK_SIZE:
+        x = BLOCK_SIZE
     elif x + size[0] > the_big_screen.get_width():
         x = the_big_screen.get_width() - size[0]
-    if y < 0:
-        y = 0
+    if y < BLOCK_SIZE:
+        y = BLOCK_SIZE
     elif y + size[1] > the_big_screen.get_height():
         y = the_big_screen.get_height() - size[1]
     return x, y
