@@ -6,7 +6,7 @@ pygame.init()
 size = 800, 500
 screen = pygame.display.set_mode(size)
 pygame.display.set_caption("Logue Regacy")
-overlapping_screen = pygame.Surface([800, 500], pygame.SRCALPHA)
+overlapping_screen = pygame.Surface([size[0], size[1]], pygame.SRCALPHA)
 overlapping_screen = overlapping_screen.convert_alpha()
 ATTACK_TIME = 1000  # in milliseconds
 ATTACK_COOLDOWN = 1000  # in milliseconds
@@ -82,9 +82,9 @@ def start_menu():
         main_surface.blit(IMAGES["leader_board"], (610, 410))
         play_button.draw(main_surface, pygame.mouse.get_pos())
 
-    main_surface = pygame.Surface([800, 500])
+    main_surface = pygame.Surface([size[0], size[1]])
     tick = 0
-    fon = pygame.transform.scale(load_image('fon.jpg'), (800, 500))
+    fon = pygame.transform.scale(load_image('fon.jpg'), (size[0], size[1]))
     intro_text = create_text("Play", "data\\CenturyGothic-Bold.ttf", 30, pygame.Color(18, 196, 30), 5)
     intro_text_cover = create_text("Play", "data\\CenturyGothic-Bold.ttf", 39, pygame.Color(18, 196, 30), 5)
     play_button = Button(400 - intro_text.get_width() // 2, 380 - intro_text.get_height() // 2, intro_text,
@@ -116,10 +116,6 @@ def pause():
     main_surface_dx = 200
     main_surface_dy = 125
     main_surface.fill(pygame.Color("blue"))
-    for x in range(800):
-        for y in range(500):
-            r, g, b, a = screen.get_at((x, y))
-            screen.set_at((x, y), pygame.Color(r // 3, g // 3, b // 3, a))
     resume_icon = load_image("continue-icon.png")
     resume_icon.convert_alpha()
     main_surface.blit(resume_icon, (168, 155))
