@@ -67,24 +67,33 @@ def camera_adjustment():
     return x, y
 
 
+def create_text(text, font, font_size, color, underline=False):
+    font = pygame.font.Font(font, font_size)
+    font.set_underline(underline)
+    text_obj = font.render(text, 1, color)
+    return text_obj
+
+
 def start_menu():
+    def draw_main_surface():
+        main_surface.fill(pygame.Color("black"))
+        main_surface.blit(fon, (0, 0))
+        main_surface.blit(IMAGES["settings"], (725, 425))
+        main_surface.blit(IMAGES["leader_board"], (610, 410))
+        play_button.draw(main_surface, pygame.mouse.get_pos())
+
     main_surface = pygame.Surface([800, 500])
     tick = 0
-    intro_text = "Press any key to continue"
     fon = pygame.transform.scale(load_image('fon.jpg'), (800, 500))
-    main_surface.blit(fon, (0, 0))
-    font = pygame.font.Font("data\\CenturyGothic-Italic.ttf", 20)
-    intro_text_obj = font.render(intro_text, 1, pygame.Color("red"))
-    main_surface.blit(intro_text_obj, (400 - intro_text_obj.get_width() // 2, 400 - intro_text_obj.get_height() // 2))
-    main_surface.blit(IMAGES["settings"], (725, 425))
-    main_surface.blit(IMAGES["leader_board"], (610, 410))
+    intro_text = create_text("Play", "data\\CenturyGothic-Bold.ttf", 30, pygame.Color(18, 196, 30), 5)
+    intro_text_cover = create_text("Play", "data\\CenturyGothic-Bold.ttf", 39, pygame.Color(18, 196, 30), 5)
+    play_button = Button(400 - intro_text.get_width() // 2, 380 - intro_text.get_height() // 2, intro_text,
+                         intro_text_cover)
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit(0)
-            if event.type == pygame.KEYDOWN:
-                return
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     x, y = pygame.mouse.get_pos()
@@ -92,7 +101,10 @@ def start_menu():
                         return
                     if pygame.Rect.collidepoint(pygame.Rect(610, 410, 100, 100), x, y):  # launch leader_boards screen
                         leader_board()
+                    if play_button.is_cover((x, y)):
+                        return
         main_surface.set_alpha((tick ** 2) / 300)
+        draw_main_surface()
         screen.blit(main_surface, (0, 0))
         pygame.display.flip()
         clock.tick(FPS)
@@ -282,6 +294,36 @@ def gravitation(entity):
             entity.standing = True
         entity.rect.y += 1
         return
+
+
+class Button:
+    def __init__(self, x, y, text, text_cover):  # coordinates in pixels
+        self.text = text
+        self.text_cover = text_cover
+        self.text_w, self.text_h = text.get_width(), text.get_height()
+        self.text_cover_w, self.text_cover_h = text_cover.get_width(), text_cover.get_height()
+        self.rect = pygame.Rect(x, y, text.get_width() + 2, text.get_height() + 2)
+        self.rect_cover = pygame.Rect(x - (self.text_cover_w - self.text_w) // 2,
+                                      y - (self.text_cover_h - self.text_h) // 2, text_cover.get_width() + 2,
+                                      text_cover.get_height() + 2)
+        self.cover = False
+
+    def is_cover(self, pos):
+        x, y = pos
+        if not self.cover:
+            temp = self.rect.collidepoint(x, y)
+            self.cover = temp
+            return temp
+        else:
+            temp = self.rect_cover.collidepoint(x, y)
+            self.cover = temp
+            return temp
+
+    def draw(self, surface, pos):  # mouse_pos
+        if self.is_cover(pos):
+            surface.blit(self.text, (self.rect.x, self.rect.y))
+        else:
+            surface.blit(self.text_cover, (self.rect_cover.x, self.rect_cover.y))
 
 
 class Player(pygame.sprite.Sprite):
