@@ -14,18 +14,33 @@ BLOCK_SIZE = 50  # размер одного блока
 FALLING_MAX = -10
 FALLING_SPEED = 1
 FPS = 60
+CURRENT_MAP = 1
+DIRECTIONS = {
+    "left": 1,
+    "up": 2,
+    "right": 3,
+    "down": 4
+}
 clock = pygame.time.Clock()
 """
-# - block
-_ - platform
-. - nothing
-@ - player
-@ - player
+# block
+_ platform
+. nothing
 * - prujinka
+
+@ player
+@ player
+
+- vertical_border
+- vertical_border
+
+- - horizontal_border
+
 one block - 50x50
 """
 
 IMAGES = dict()
+MAP_RELATIONS = dict()
 
 
 def draw_main_screen():
@@ -36,7 +51,6 @@ def draw_main_screen():
     all_blocks.draw(the_big_screen)
     all_enemies.draw(the_big_screen)
     all_hero.draw(the_big_screen)
-    all_prujinks.draw(the_big_screen)
     cutout_x, cutout_y = camera_adjustment()
     cutout = pygame.Rect(cutout_x, cutout_y, size[0], size[1])
     screen.blit(the_big_screen, (0, 0), cutout)
@@ -116,6 +130,10 @@ def pause():
     main_surface_dx = 200
     main_surface_dy = 125
     main_surface.fill(pygame.Color("blue"))
+    for x in range(size[0]):
+        for y in range(size[1]):
+            r, g, b, a = screen.get_at((x, y))
+            screen.set_at((x, y), pygame.Color(r // 3, g // 3, b // 3, a))
     resume_icon = load_image("continue-icon.png")
     resume_icon.convert_alpha()
     main_surface.blit(resume_icon, (168, 155))
@@ -209,28 +227,48 @@ def prujinka_collision(item):
     return 0 if pygame.sprite.spritecollideany(item, all_prujinks) is None else 1
 
 
-def load_and_generate_map(filename):  # return hero
+def load_and_generate_map(filename, new_pos=None, direction=None):
     filename = os.path.join("data", filename)
     with open(filename, 'r') as mapFile:
         level_map = [line.strip() for line in mapFile]
     max_width = max(max(map(len, level_map)), 16)
     level = list(map(lambda x: x.ljust(max_width, '.'), level_map))
-    height = max(10, len(level))
+    max_height = max(len(level), 17)
     player_flag = 0
     player_x, player_y = 0, 0
+    next_levels_pos = []
     for y in range(len(level)):
         for x in range(len(level[y])):
             if level[y][x] == '#':
                 Block(x, y)
-            if level[y][x] == '@' and not player_flag:
+            if level[y][x] == '@' and new_pos is None and not player_flag:
                 player_x, player_y = x, y
                 player_flag = 1
             if level[y][x] == '_':
                 Platform(x, y)
             if level[y][x] == '*':
                 Prujinka(x, y)
+            if level[y][x] == '-':
+                if y == 0 or y == len(level) - 1:
+                    if x > 0 and level[y][x - 1] != '-':
+                        Next_level_horizontal_border(x, y)
+                        next_levels_pos.append((x, y))
+                else:
+                    if y > 0 and level[y - 1][x] != '-':
+                        Next_level_vertical_border(x, y)
+                        next_levels_pos.append((x, y))
+    if player_x == 0 and player_y == 0:
+        player_x, player_y = next_levels_pos[new_pos - 1]
+        if direction == DIRECTIONS["left"]:
+            player_x -= 1
+        if direction == DIRECTIONS["right"]:
+            player_x += 1
+        if direction == DIRECTIONS["up"]:
+            player_y -= 2
+        if direction == DIRECTIONS["down"]:
+            player_y += 1
     hero = Player(player_x, player_y)
-    return hero, max_width, height
+    return hero, max_width, max_height, next_levels_pos
 
 
 def load_image(name, colorkey=None):
@@ -433,6 +471,50 @@ class Prujinka(pygame.sprite.Sprite):
         self.rect.x, self.rect.y = x, y
 
 
+class Next_level_vertical_border(pygame.sprite.Sprite):
+    image = pygame.Surface([int(BLOCK_SIZE * 0.6), BLOCK_SIZE * 2])
+    image.fill(pygame.Color("yellow"))
+
+    def __init__(self, x, y):  # coordinates not in pixels
+        super().__init__(all_blocks, next_level_vertical_border_group)
+
+        # relative directions(relative to current level)
+
+        if x == 0:
+            self.direction = DIRECTIONS["left"]
+        else:
+            self.direction = DIRECTIONS["right"]
+        self.pos = (x, y)
+        x *= BLOCK_SIZE
+        y *= BLOCK_SIZE
+        x += BLOCK_SIZE // 5
+        self.image = Next_level_vertical_border.image
+        self.rect = self.image.get_rect()
+        self.rect.x, self.rect.y = x, y
+
+
+class Next_level_horizontal_border(pygame.sprite.Sprite):
+    image = pygame.Surface([BLOCK_SIZE * 2, int(BLOCK_SIZE * 0.6)])
+    image.fill(pygame.Color("yellow"))
+
+    def __init__(self, x, y):
+        super().__init__(all_blocks, next_level_horizontal_border_group)
+
+        # relative directions(relative to current level)
+
+        if y == 0:
+            self.direction = DIRECTIONS["up"]
+        else:
+            self.direction = DIRECTIONS["down"]
+        self.pos = (x, y)
+        x *= BLOCK_SIZE
+        y *= BLOCK_SIZE
+        y += BLOCK_SIZE // 5
+        self.image = Next_level_horizontal_border.image
+        self.rect = self.image.get_rect()
+        self.rect.x, self.rect.y = x, y
+
+
 running = True
 all_hero = pygame.sprite.Group()
 all_blocks = pygame.sprite.Group()
@@ -442,7 +524,9 @@ block_vertical_borders = pygame.sprite.Group()
 block_down_horizontal_borders = pygame.sprite.Group()
 block_up_horizontal_borders = pygame.sprite.Group()
 platform_horizontal_borders = pygame.sprite.Group()
-hero, level_width, level_height = load_and_generate_map("map.txt")
+next_level_horizontal_border_group = pygame.sprite.Group()
+next_level_vertical_border_group = pygame.sprite.Group()
+hero, level_width, level_height, next_levels_pos = load_and_generate_map(f"map_{str(CURRENT_MAP)}.txt")
 the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
 can_attack = True
 
@@ -466,10 +550,59 @@ def init_images():
     IMAGES["back_arrow"] = back_arrow_icon
 
 
+def init_map_relations():
+    filename = os.path.join("data", "map_relations.txt")
+    with open(filename, 'r') as mapFile:
+        map_relations = [line.strip() for line in mapFile]
+    for line in map_relations:
+        line = line.split('-')
+        line[0] = line[0].split(',')
+        line[1] = line[1].split(',')
+        first_tuple = (int(line[0][0]), int(line[0][1]))
+        second_tuple = (int(line[1][0]), int(line[1][1]))
+        MAP_RELATIONS[first_tuple] = second_tuple
+        MAP_RELATIONS[second_tuple] = first_tuple
+
+
 init_images()
+init_map_relations()
 start_menu()
 
 draw_overlapping_screen()
+
+
+def reset_level():
+    global all_hero, all_blocks, all_enemies, all_prujinks, block_vertical_borders, \
+        block_down_horizontal_borders, block_up_horizontal_borders, platform_horizontal_borders, \
+        next_level_horizontal_border_group, next_level_vertical_border_group
+    all_hero = pygame.sprite.Group()
+    all_blocks = pygame.sprite.Group()
+    all_enemies = pygame.sprite.Group()
+    all_prujinks = pygame.sprite.Group()
+    block_vertical_borders = pygame.sprite.Group()
+    block_down_horizontal_borders = pygame.sprite.Group()
+    block_up_horizontal_borders = pygame.sprite.Group()
+    platform_horizontal_borders = pygame.sprite.Group()
+    next_level_horizontal_border_group = pygame.sprite.Group()
+    next_level_vertical_border_group = pygame.sprite.Group()
+
+
+def check_and_change_level(group):
+    global hero, next_levels_pos, CURRENT_MAP, the_big_screen
+    collide_obj = pygame.sprite.spritecollide(hero, group, 0, 0)
+    if collide_obj:
+        hero_x, hero_y = hero.vel_x, hero.vel_y
+        collide_obj = collide_obj[0]
+        for i in range(len(next_levels_pos)):
+            if next_levels_pos[i] == collide_obj.pos:
+                reset_level()
+                CURRENT_MAP, new_pos = MAP_RELATIONS[(CURRENT_MAP, i + 1)]
+                hero, level_width, level_height, next_levels_pos = load_and_generate_map(f"map_{str(CURRENT_MAP)}.txt",
+                                                                                         new_pos, collide_obj.direction)
+                hero.vel_x, hero.vel_y = hero_x, hero_y
+                the_big_screen = pygame.Surface([level_height * BLOCK_SIZE, level_width * BLOCK_SIZE])
+                return
+
 
 while running:
     for event in pygame.event.get():
@@ -490,6 +623,8 @@ while running:
                 if dist(x, y, 42, 42) <= 32:
                     pause()
     keys = pygame.key.get_pressed()
+    check_and_change_level(next_level_horizontal_border_group)
+    check_and_change_level(next_level_vertical_border_group)
     if keys[pygame.K_ESCAPE]:
         pause()
     if keys[pygame.K_UP] and not hero.is_jump and (horizontal_up_collision(hero) or platform_collision(hero)):
