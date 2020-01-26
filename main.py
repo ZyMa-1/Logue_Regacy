@@ -14,7 +14,7 @@ BLOCK_SIZE = 50  # размер одного блока
 FALLING_MAX = -10
 FALLING_SPEED = 1
 FPS = 60
-CURRENT_MAP = 1
+CURRENT_MAP = 0
 DIRECTIONS = {
     "left": 1,
     "up": 2,
@@ -36,7 +36,6 @@ one block - 50x50
 """
 
 IMAGES = dict()
-MAP_RELATIONS = dict()
 
 
 def draw_main_screen():
@@ -66,13 +65,12 @@ def dist(x1, y1, x2, y2):
 def camera_adjustment():
     x = round(hero.rect.x + 0.5 * hero.rect.w - size[0] * 0.5)
     y = round(hero.rect.y + 0.5 * hero.rect.h - size[1] * 0.5)
-    print(the_big_screen.get_width(), the_big_screen.get_height())
-    if x < BLOCK_SIZE:
-        x = BLOCK_SIZE
+    if x < 0:
+        x = 0
     elif x + size[0] > the_big_screen.get_width():
         x = the_big_screen.get_width() - size[0]
-    if y < BLOCK_SIZE:
-        y = BLOCK_SIZE
+    if y < 0:
+        y = 0
     elif y + size[1] > the_big_screen.get_height():
         y = the_big_screen.get_height() - size[1]
     return x, y
@@ -127,10 +125,6 @@ def pause():
     main_surface_dx = 200
     main_surface_dy = 125
     main_surface.fill(pygame.Color("blue"))
-    for x in range(size[0]):
-        for y in range(size[1]):
-            r, g, b, a = screen.get_at((x, y))
-            screen.set_at((x, y), pygame.Color(r // 3, g // 3, b // 3, a))
     resume_icon = load_image("continue-icon.png")
     resume_icon.convert_alpha()
     main_surface.blit(resume_icon, (168, 155))
@@ -224,16 +218,29 @@ def prujinka_collision(item):
     return 0 if pygame.sprite.spritecollideany(item, all_prujinks) is None else 1
 
 
-def load_and_generate_map(filename, new_pos=None, direction=None):
+def ladder_collision(item):
+    return 1 if pygame.sprite.spritecollideany(item, all_ladders, pygame.sprite.collide_mask) else 0
+
+
+def load_and_generate_map(filename, new_pos=None):
+    map_x, map_y = 0, 0
+    if filename != "map.txt":
+        map_x, map_y = int(filename.split('_')[1]), int(filename.split('_')[2].strip('.txt'))
     filename = os.path.join("data\\maps", filename)
     with open(filename, 'r') as mapFile:
         level_map = [line.strip() for line in mapFile]
-    max_width = max(max(map(len, level_map)), 16)
+    true_width, true_height = max(map(len, level_map)), len(level_map)
+    max_width = max(true_width, 17)
     level = list(map(lambda x: x.ljust(max_width, '.'), level_map))
-    max_height = max(len(level), 17)
+    max_height = max(true_height, 11)
     player_flag = 0
     player_x, player_y = 0, 0
-    next_levels_pos = []
+    next_levels_pos = {
+        DIRECTIONS["up"]: None,
+        DIRECTIONS["down"]: None,
+        DIRECTIONS["right"]: None,
+        DIRECTIONS["left"]: None
+    }
     for y in range(len(level)):
         for x in range(len(level[y])):
             if level[y][x] == '#':
@@ -245,29 +252,51 @@ def load_and_generate_map(filename, new_pos=None, direction=None):
                 Platform(x, y)
             if level[y][x] == '*':
                 Prujinka(x, y)
+            if level[y][x] == '/':
+                Ladder(x, y, angle=45)
+            if level[y][x] == '\\':
+                Ladder(x - 1, y, angle=-45)
             if level[y][x] == '-':
                 if y == 0 or y == len(level) - 1:
                     if x > 0 and level[y][x - 1] != '-':
+                        if filename != "map.txt" and (y == 0 and map_y == 3) or (
+                                y == true_height - 1 and map_y == 1):  # 3 - all_map height (3x3)
+                            Block(x, y)
+                            Block(x + 1, y)
+                            continue
                         Next_level_horizontal_border(x, y)
                         Platform(x, y)
                         Platform(x + 1, y)
-                        next_levels_pos.append((x, y))
+                        if y == 0:
+                            next_levels_pos[DIRECTIONS["up"]] = (x, y)
+                        else:
+                            next_levels_pos[DIRECTIONS["down"]] = (x, y)
                 else:
                     if y > 0 and level[y - 1][x] != '-':
+                        if filename != "map.txt" and (
+                                filename != "map_1_1.txt" and new_pos != DIRECTIONS["left"]) and (
+                                x == 0 and map_x == 1) or (
+                                x == true_width - 1 and map_x == 3):  # 3 - all_map height (3x3)
+                            Block(x, y)
+                            Block(x, y + 1)
+                            continue
                         Next_level_vertical_border(x, y)
-                        next_levels_pos.append((x, y))
+                        if x == 0:
+                            next_levels_pos[DIRECTIONS["left"]] = (x, y)
+                        else:
+                            next_levels_pos[DIRECTIONS["right"]] = (x, y)
     if player_x == 0 and player_y == 0:
-        player_x, player_y = next_levels_pos[new_pos - 1]
-        if direction == DIRECTIONS["left"]:
-            player_x -= 1
-        if direction == DIRECTIONS["right"]:
+        player_x, player_y = next_levels_pos[new_pos]
+        if new_pos == DIRECTIONS["left"]:
             player_x += 1
-        if direction == DIRECTIONS["up"]:
-            player_y -= 2
-        if direction == DIRECTIONS["down"]:
-            player_y += 1
+        if new_pos == DIRECTIONS["right"]:
+            player_x -= 1
+        if new_pos == DIRECTIONS["up"]:
+            player_y -= 1
+        if new_pos == DIRECTIONS["down"]:
+            player_y += 2
     hero = Player(player_x, player_y)
-    return hero, max_width, max_height, next_levels_pos
+    return hero, max_width, max_height, next_levels_pos, true_width, true_height
 
 
 def load_image(name, colorkey=None):
@@ -355,7 +384,7 @@ class Platform(pygame.sprite.Sprite):
 
 
 class Border(pygame.sprite.Sprite):
-    def __init__(self, x1, y1, x2, y2):
+    def __init__(self, x1, y1, x2, y2, rotate=False):
         super().__init__(all_blocks)
         if x1 == x2:
             self.image = pygame.Surface([0, 0])
@@ -424,6 +453,24 @@ class Next_level_horizontal_border(pygame.sprite.Sprite):
         self.rect.x, self.rect.y = x, y
 
 
+class Ladder(pygame.sprite.Sprite):
+    side_len = round(BLOCK_SIZE * (2 ** .5))
+    image = pygame.Surface([side_len, side_len], pygame.SRCALPHA)
+    image.fill(pygame.Color("purple"))
+
+    def __init__(self, x, y, angle):
+        super().__init__(all_blocks, all_ladders)
+        x *= BLOCK_SIZE
+        y *= BLOCK_SIZE
+        self.pos = (x, y)
+        self.image = Ladder.image.convert_alpha()
+        self.image = pygame.transform.rotozoom(self.image, angle, 1)
+        self.rect = self.image.get_rect(center=(x + BLOCK_SIZE, y + BLOCK_SIZE))
+        self.rect = self.image.get_rect(center=self.rect.center)
+        self.rect.x, self.rect.y = x, y
+        self.mask = pygame.mask.from_surface(self.image)
+
+
 # ---------------------------------------------ENTITY------------------------------------------------------------------
 class Player(pygame.sprite.Sprite):
 
@@ -434,7 +481,7 @@ class Player(pygame.sprite.Sprite):
         self.vel_x = 5
         self.vel_y = FALLING_MAX
         self.rect = pygame.Rect(x, y, BLOCK_SIZE - 1, 2 * BLOCK_SIZE - 1)
-        self.image = pygame.Surface([BLOCK_SIZE - 1, 2 * BLOCK_SIZE - 1])
+        self.image = pygame.Surface([BLOCK_SIZE - 1, 2 * BLOCK_SIZE - 1]).convert_alpha()
         pygame.draw.rect(self.image, (255, 0, 0), (1, 1, BLOCK_SIZE - 2, BLOCK_SIZE * 2 - 2))
         self.is_jump = False
         self.right = True
@@ -451,11 +498,11 @@ class Player(pygame.sprite.Sprite):
         self.damage_taken = 100  # percentages
         self.attack_damage = 1
         self.jump_amount = 1
+        self.mask = pygame.mask.from_surface(self.image)
 
     def update(self):
         self.ground_border = Invisible_Rect(self.rect.x, self.rect.y + self.rect.h - 9, self.rect.x + self.rect.w,
                                             self.rect.y + self.rect.h + 1)
-
         if horizontal_down_collision(self):
             while horizontal_down_collision(self):
                 self.rect.y += 1
@@ -494,6 +541,12 @@ class Player(pygame.sprite.Sprite):
                 self.standing = True
             self.rect.y += 1
             return
+        if ladder_collision(self):
+            self.is_jump = False
+            self.standing = True
+            while ladder_collision(self):
+                self.rect.y -= 1
+            self.rect.y += 1
 
     def def_attack(self):
         global can_attack
@@ -557,6 +610,7 @@ all_hero = pygame.sprite.Group()
 all_blocks = pygame.sprite.Group()
 all_enemies_sprite = pygame.sprite.Group()
 all_prujinks = pygame.sprite.Group()
+all_ladders = pygame.sprite.Group()
 all_enemies = []
 
 block_vertical_borders = pygame.sprite.Group()
@@ -566,7 +620,7 @@ platform_horizontal_borders = pygame.sprite.Group()
 next_level_horizontal_border_group = pygame.sprite.Group()
 next_level_vertical_border_group = pygame.sprite.Group()
 
-hero, level_width, level_height, next_levels_pos = load_and_generate_map(f"map_{str(CURRENT_MAP)}.txt")
+hero, level_width, level_height, next_levels_pos, true_width, true_height = load_and_generate_map("map.txt")
 the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
 can_attack = True
 
@@ -582,22 +636,32 @@ def init_images():
     IMAGES["back_arrow"] = back_arrow_icon
 
 
-def init_map_relations():
-    filename = os.path.join("data", "map_relations.txt")
-    with open(filename, 'r') as mapFile:
-        map_relations = [line.strip() for line in mapFile]
-    for line in map_relations:
-        line = line.split('-')
-        line[0] = line[0].split(',')
-        line[1] = line[1].split(',')
-        first_tuple = (int(line[0][0]), int(line[0][1]))
-        second_tuple = (int(line[1][0]), int(line[1][1]))
-        MAP_RELATIONS[first_tuple] = second_tuple
-        MAP_RELATIONS[second_tuple] = first_tuple
+def generate_map_relation(obj):  # directions relating to next_level
+    global CURRENT_MAP
+    if CURRENT_MAP == 0:
+        return "map_1_1.txt", DIRECTIONS["left"]
+    map = CURRENT_MAP.strip("map_").rstrip(".txt")
+    map = map.split("_")
+    x, y = obj.pos
+    if x == 0:
+        map[1] = int(map[1])
+        map[1] -= 1
+        return f"map_{str(map[0])}_{str(map[1])}.txt", DIRECTIONS["right"]
+    if y == 0:
+        map[0] = int(map[0])
+        map[0] += 1
+        return f"map_{str(map[0])}_{str(map[1])}.txt", DIRECTIONS["down"]
+    if x == true_width - 1:
+        map[1] = int(map[1])
+        map[1] += 1
+        return f"map_{str(map[0])}_{str(map[1])}.txt", DIRECTIONS["left"]
+    if y == true_height - 1:
+        map[0] = int(map[0])
+        map[0] -= 1
+        return f"map_{str(map[0])}_{str(map[1])}.txt", DIRECTIONS["up"]
 
 
 init_images()
-init_map_relations()
 start_menu()
 
 draw_overlapping_screen()
@@ -620,18 +684,18 @@ def reset_level():
     next_level_vertical_border_group = pygame.sprite.Group()
 
 
-def check_and_change_level(group):
-    global hero, next_levels_pos, CURRENT_MAP, the_big_screen
+def check_and_change_level(group):  # (y ↑ x →)
+    global hero, next_levels_pos, CURRENT_MAP, the_big_screen, true_width, true_height, level_width, level_height
     collide_obj = pygame.sprite.spritecollide(hero, group, 0, 0)
     if collide_obj:
         hero_x, hero_y = hero.vel_x, hero.vel_y
         collide_obj = collide_obj[0]
-        for i in range(len(next_levels_pos)):
+        for i in next_levels_pos.keys():
             if next_levels_pos[i] == collide_obj.pos:
                 reset_level()
-                CURRENT_MAP, new_pos = MAP_RELATIONS[(CURRENT_MAP, i + 1)]
-                hero, level_width, level_height, next_levels_pos = load_and_generate_map(f"map_{str(CURRENT_MAP)}.txt",
-                                                                                         new_pos, collide_obj.direction)
+                CURRENT_MAP, new_pos = generate_map_relation(collide_obj)
+                hero, level_width, level_height, next_levels_pos, true_width, true_height = load_and_generate_map(
+                    CURRENT_MAP, new_pos)
                 hero.vel_x, hero.vel_y = hero_x, hero_y
                 the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
                 return
@@ -660,7 +724,7 @@ while running:
     check_and_change_level(next_level_vertical_border_group)
     if keys[pygame.K_ESCAPE]:
         pause()
-    if keys[pygame.K_UP] and not hero.is_jump and (horizontal_up_collision(hero) or platform_collision(hero)):
+    if keys[pygame.K_UP] and not hero.is_jump and (horizontal_up_collision(hero) or platform_collision(hero) or ladder_collision(hero)):
         hero.is_jump = True
         hero.vel_y = -(FALLING_MAX * 2)
         hero.rect.y -= 2
