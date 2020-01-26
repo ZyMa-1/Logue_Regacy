@@ -121,13 +121,36 @@ def start_menu():
 
 
 def pause():
-    main_surface = pygame.Surface([400, 250])
+    def draw_main_surface():
+        main_surface.fill(pygame.Color("blue"))
+        cutout_x, cutout_y = camera_adjustment()
+        cutout = pygame.Rect(cutout_x, cutout_y, size[0], size[1])
+        screen.blit(the_big_screen, (0, 0), cutout)
+        x, y = pygame.mouse.get_pos()
+        x -= main_surface_dx
+        y -= main_surface_dy
+        continue_button.draw(main_surface, (x, y))
+        restart_button.draw(main_surface, (x, y))
+        exit_button.draw(main_surface, (x, y))
+        screen.blit(main_surface, (main_surface_dx, main_surface_dy))
+        draw_overlapping_screen()
+
+    main_surface = pygame.Surface([400, 250]).convert_alpha()
     main_surface_dx = 200
     main_surface_dy = 125
     main_surface.fill(pygame.Color("blue"))
-    resume_icon = load_image("continue-icon.png")
-    resume_icon.convert_alpha()
-    main_surface.blit(resume_icon, (168, 155))
+    continue_text = create_text("Continue", "data\\CenturyGothic-Bold.ttf", 31, pygame.Color(18, 196, 30), 5)
+    continue_text_cover = create_text("Continue", "data\\CenturyGothic-Bold.ttf", 35, pygame.Color(18, 196, 30), 5)
+    continue_button = Button(200 - continue_text.get_width() // 2, 50 - continue_text.get_height() // 2, continue_text,
+                             continue_text_cover)
+    restart_text = create_text("Restart", "data\\CenturyGothic-Bold.ttf", 31, pygame.Color(18, 196, 30), 5)
+    restart_text_cover = create_text("Restart", "data\\CenturyGothic-Bold.ttf", 35, pygame.Color(18, 196, 30), 5)
+    restart_button = Button(200 - restart_text.get_width() // 2, 120 - restart_text.get_height() // 2, restart_text,
+                            restart_text_cover)
+    exit_text = create_text("Save and exit", "data\\CenturyGothic-Bold.ttf", 31, pygame.Color(18, 196, 30), 5)
+    exit_text_cover = create_text("Save and exit", "data\\CenturyGothic-Bold.ttf", 35, pygame.Color(18, 196, 30), 5)
+    exit_button = Button(200 - exit_text.get_width() // 2, 190 - exit_text.get_height() // 2, exit_text,
+                         exit_text_cover)
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -137,9 +160,9 @@ def pause():
                 x, y = pygame.mouse.get_pos()
                 x -= main_surface_dx
                 y -= main_surface_dy
-                if dist(x, y, 200, 189) <= 32:
+                if continue_button.is_cover((x, y)):
                     return
-        screen.blit(main_surface, (main_surface_dx, main_surface_dy))
+        draw_main_surface()
         pygame.display.flip()
         clock.tick(FPS)
 
@@ -253,11 +276,9 @@ def load_and_generate_map(filename, new_pos=None):
             if level[y][x] == '*':
                 Prujinka(x, y)
             if level[y][x] == '/':
-                print(x, y)
                 Ladder(x, y, angle=45)
             if level[y][x] == '\\':
-                print(x - 1, y)
-                Ladder(x - 1, y, angle=135)
+                Ladder(x - 1, y, angle=-45)
             if level[y][x] == '-':
                 if y == 0 or y == len(level) - 1:
                     if x > 0 and level[y][x - 1] != '-':
@@ -275,10 +296,13 @@ def load_and_generate_map(filename, new_pos=None):
                             next_levels_pos[DIRECTIONS["down"]] = (x, y)
                 else:
                     if y > 0 and level[y - 1][x] != '-':
-                        if filename != "map.txt" and (
-                                filename != "map_1_1.txt" and new_pos != DIRECTIONS["left"]) and (
-                                x == 0 and map_x == 1) or (
+                        if filename != "map.txt" and (x == 0 and map_x == 1) or (
                                 x == true_width - 1 and map_x == 3):  # 3 - all_map height (3x3)
+                            if filename.split('\\')[-1] == 'map_1_1.txt' and new_pos == DIRECTIONS["left"]:
+                                if x == 0:
+                                    next_levels_pos[DIRECTIONS["left"]] = (x, y)
+                                else:
+                                    next_levels_pos[DIRECTIONS["right"]] = (x, y)
                             Block(x, y)
                             Block(x, y + 1)
                             continue
@@ -467,7 +491,7 @@ class Ladder(pygame.sprite.Sprite):
         self.pos = (x, y)
         self.image = Ladder.image.convert_alpha()
         self.image = pygame.transform.rotozoom(self.image, angle, 1)
-        self.rect = self.image.get_rect(center=(x + BLOCK_SIZE, y + BLOCK_SIZE))
+        self.rect = self.image.get_rect(center=(x + BLOCK_SIZE + 1, y + BLOCK_SIZE))
         self.rect = self.image.get_rect(center=self.rect.center)
         self.rect.x, self.rect.y = x, y
         self.mask = pygame.mask.from_surface(self.image)
