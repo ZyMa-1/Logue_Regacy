@@ -8,8 +8,9 @@ screen = pygame.display.set_mode(size)
 pygame.display.set_caption("Logue Regacy")
 overlapping_screen = pygame.Surface([size[0], size[1]], pygame.SRCALPHA)
 overlapping_screen = overlapping_screen.convert_alpha()
-ATTACK_TIME = 1000  # in milliseconds
-ATTACK_COOLDOWN = 1000  # in milliseconds
+ATTACK_TIME = 100  # in milliseconds
+ATTACK_COOLDOWN = 100  # in milliseconds
+ATTACK_SWING = 100 # in milliseconds
 BLOCK_SIZE = 50  # размер одного блока
 FALLING_MAX = -10
 FALLING_SPEED = 1
@@ -27,15 +28,11 @@ clock = pygame.time.Clock()
 _ platform
 . nothing
 * - prujinka
-
 @ player
 @ player
-
 - vertical_border
 - vertical_border
-
 - - horizontal_border
-
 one block - 50x50
 """
 
@@ -45,7 +42,7 @@ MAP_RELATIONS = dict()
 
 def draw_main_screen():
     the_big_screen.fill(pygame.Color("black"))
-    if hero.attack_type != 0:
+    if hero.attack_type != 0 and not can_attack:
         hero.def_attack()
         hero.attack.draw(the_big_screen)
     all_blocks.draw(the_big_screen)
@@ -70,6 +67,7 @@ def dist(x1, y1, x2, y2):
 def camera_adjustment():
     x = round(hero.rect.x + 0.5 * hero.rect.w - size[0] * 0.5)
     y = round(hero.rect.y + 0.5 * hero.rect.h - size[1] * 0.5)
+    #print(the_big_screen.get_width(), the_big_screen.get_height())
     if x < BLOCK_SIZE:
         x = BLOCK_SIZE
     elif x + size[0] > the_big_screen.get_width():
@@ -228,7 +226,7 @@ def prujinka_collision(item):
 
 
 def load_and_generate_map(filename, new_pos=None, direction=None):
-    filename = os.path.join("data", filename)
+    filename = os.path.join("data\\maps", filename)
     with open(filename, 'r') as mapFile:
         level_map = [line.strip() for line in mapFile]
     max_width = max(max(map(len, level_map)), 16)
@@ -252,6 +250,8 @@ def load_and_generate_map(filename, new_pos=None, direction=None):
                 if y == 0 or y == len(level) - 1:
                     if x > 0 and level[y][x - 1] != '-':
                         Next_level_horizontal_border(x, y)
+                        Platform(x, y)
+                        Platform(x + 1, y)
                         next_levels_pos.append((x, y))
                 else:
                     if y > 0 and level[y - 1][x] != '-':
@@ -426,34 +426,101 @@ class Next_level_horizontal_border(pygame.sprite.Sprite):
 
 
 # ---------------------------------------------ENTITY------------------------------------------------------------------
-class Player(pygame.sprite.Sprite):
 
-    def __init__(self, x, y):  # coordinates not in pixels
-        super().__init__(all_hero)
+def damage_check():
+    if len(hero.attack.sprites()) > 0:
+        for enemy in pygame.sprite.spritecollide(hero.attack.sprites()[0], all_enemies_sprite, False):
+            if enemy.i_frames == 0:
+                dir = "right"
+                if hero.rect.x > enemy.rect.x:
+                    dir = "left"
+                enemy.take_damage(dir)
+    if hero.knocked_back is False and hero.i_frames == 0:
+        for enemy in pygame.sprite.spritecollide(hero, all_enemies_sprite, False):
+            dir = "right"
+            if enemy.rect.x > hero.rect.x:
+                dir = "left"
+            hero.take_damage(enemy.attack_damage, dir)
+
+
+class Frog(pygame.sprite.Sprite):
+    def __init__(self, x, y, wi, he):  # coordinates not in pixels
+        super().__init__(all_enemies_sprite)
         x *= BLOCK_SIZE
         y *= BLOCK_SIZE
-        self.vel_x = 5
+        self.vel_x = 7
         self.vel_y = FALLING_MAX
-        self.rect = pygame.Rect(x, y, BLOCK_SIZE - 1, 2 * BLOCK_SIZE - 1)
-        self.image = pygame.Surface([BLOCK_SIZE - 1, 2 * BLOCK_SIZE - 1])
-        pygame.draw.rect(self.image, (255, 0, 0), (1, 1, BLOCK_SIZE - 2, BLOCK_SIZE * 2 - 2))
-        self.is_jump = False
-        self.right = True
-        self.left = False
-        self.standing = True
-        self.is_down = False
-        self.attack_type = 0
+
+        self.rect = pygame.Rect(x, y, wi - 1, he - 1)
+        self.image = pygame.Surface([wi - 1, he - 2])
+        pygame.draw.rect(self.image, (0, 255, 0), (0, 1, wi - 2, he - 3))
         self.ground_border = Invisible_Rect(self.rect.x, self.rect.y + self.rect.h - 9, self.rect.x + self.rect.w,
                                             self.rect.y + self.rect.h + 1)
+
+        self.right = True
+        self.left = False
+
+        self.is_jump = False
+        self.standing = True
+        self.is_down = False
+        self.jump_cooldown = 100
+
+        self.attack_type = 0
         self.attack = pygame.sprite.Group()
-        self.max_hp = 12
-        self.hp = 11
-        self.block_amount = 10  # percentages
-        self.damage_taken = 100  # percentages
-        self.attack_damage = 1
-        self.jump_amount = 1
+        self.attack_damage = 10
+        self.i_frames = 0
+        self.knocked_back = False
+
+        self.hp = 4
+
+    def jump(self):
+        if self.standing and not self.is_jump:
+            self.jump_cooldown = 100
+            self.is_jump = True
+            self.vel_y = -((hero.rect.y - self.rect.y) // 5)
+            if self.vel_y < 0:
+                self.vel_y = 10
+            elif self.vel_y > -round(FALLING_MAX * 2.2):
+                self.vel_y = -round(FALLING_MAX * 2.2)
+            self.rect.y -= 2
+            self.standing = False
+
+    def logic(self):
+        if hero.rect.x >= self.rect.x:
+            self.right = True
+            self.left = False
+        else:
+            self.right = False
+            self.left = True
+        if hero.rect.y >= self.rect.y:
+            self.is_down = True
+        else:
+            self.is_down = False
 
     def update(self):
+        if self.i_frames > 0:
+            self.i_frames -= 1
+        if self.knocked_back:
+            if self.right:
+                self.rect.x -= 5
+            else:
+                self.rect.x += 5
+        if self.jump_cooldown == 0 and not self.knocked_back:
+            self.logic()
+            self.jump()
+        if not self.standing and not self.knocked_back:
+            if self.right:
+                self.rect.x += self.vel_x
+                while vertical_collision(self):
+                    self.rect.x -= 1
+                    self.right = False
+                    self.left = True
+            else:
+                self.rect.x -= self.vel_x
+                while vertical_collision(self):
+                    self.rect.x += 1
+                    self.right = True
+                    self.left = False
         self.ground_border = Invisible_Rect(self.rect.x, self.rect.y + self.rect.h - 9, self.rect.x + self.rect.w,
                                             self.rect.y + self.rect.h + 1)
 
@@ -464,6 +531,8 @@ class Player(pygame.sprite.Sprite):
             self.rect.y -= self.vel_y
         elif horizontal_up_collision(self) and self.is_jump is True and self.standing is False:
             self.is_jump = False
+            self.jump_cooldown = 100
+            self.knocked_back = False
             self.vel_y = FALLING_MAX
             while horizontal_up_collision(self):
                 self.rect.y -= 1
@@ -484,69 +553,220 @@ class Player(pygame.sprite.Sprite):
                 while horizontal_down_collision(self):
                     self.rect.y += 1
                 self.vel_y = -1
-        """print(platform_collision(self.ground_border), platform_collision(self), self.ground_border.rect, 
-        self.rect) """
         if platform_collision(
                 self.ground_border) and self.is_jump is True and self.standing is False and not self.is_down and self.vel_y < 0:
             self.is_jump = False
+            self.knocked_back = False
+            self.jump_cooldown = 100
             self.vel_y = FALLING_MAX
             while platform_collision(self):
                 self.rect.y -= 1
                 self.standing = True
             self.rect.y += 1
             return
-        
+        if self.jump_cooldown > 0:
+            self.jump_cooldown -= 1
+
+    def take_damage(self, direction):
+        self.i_frames = 10
+        self.hp -= hero.attack_damage
+        if hero.attack_type == 1:
+            self.knock_back(direction)
+        else:
+            hero.vel_y = 12
+            hero.is_jump = True
+            hero.standing = False
+            hero.jump_amount -= 1
+        if self.hp <= 0:
+            self.death()
+
+    def knock_back(self, direction):
+        self.vel_y = 6
+        self.standing = False
+        self.is_jump = True
+        if direction == "left":
+            self.right = True
+            self.left = False
+        else:
+            self.right = False
+            self.left = True
+        self.rect.y -= 2
+        self.knocked_back = True
+
+    def death(self):
+        all_enemies_sprite.remove(self)
+        all_enemies.remove(self)
+
+
+class Player(pygame.sprite.Sprite):
+
+    def __init__(self, x, y):  # coordinates not in pixels
+        super().__init__(all_hero)
+        x *= BLOCK_SIZE
+        y *= BLOCK_SIZE
+        self.vel_x = 7
+        self.vel_y = FALLING_MAX
+
+        self.rect = pygame.Rect(x, y, BLOCK_SIZE - 1, 2 * BLOCK_SIZE - 1)
+        self.image = pygame.Surface([BLOCK_SIZE - 1, 2 * BLOCK_SIZE - 2])
+        pygame.draw.rect(self.image, (255, 0, 0), (0, 1, BLOCK_SIZE - 2, BLOCK_SIZE * 2 - 3))
+        self.ground_border = Invisible_Rect(self.rect.x, self.rect.y + self.rect.h - 9, self.rect.x + self.rect.w,
+                                            self.rect.y + self.rect.h + 1)
+
+        self.right = True
+        self.left = False
+
+        self.is_jump = False
+        self.standing = True
+        self.is_down = False
+        self.jump_max = 1
+        self.jump_amount = self.jump_max
+
+        self.attack_type = 0
+        self.is_blocking = False
+        self.attack = pygame.sprite.Group()
+        self.attack_damage = 1
+        self.i_frames = 0
+        self.knocked_back = False
+
+        self.max_hp = 100
+        self.hp = 100
+        self.block_amount = 0.2
+        self.damage_resistance = 1
+
+    def update(self):
+        global jump_tick
+        self.ground_border = Invisible_Rect(self.rect.x, self.rect.y + self.rect.h - 9, self.rect.x + self.rect.w,
+                                            self.rect.y + self.rect.h + 1)
+
+        if self.knocked_back:
+            if self.right:
+                self.rect.x -= 5
+            else:
+                self.rect.x += 5
+        elif self.i_frames > 0 and self.knocked_back is False:
+            self.i_frames -= 1
+
+        if horizontal_down_collision(self):
+            jump_tick = 0
+            while horizontal_down_collision(self):
+                self.rect.y += 1
+            self.vel_y = -1
+            self.rect.y -= self.vel_y
+        elif horizontal_up_collision(self) and self.is_jump is True and self.standing is False:
+            jump_tick = 0
+            self.knocked_back = False
+            self.is_jump = False
+            self.vel_y = FALLING_MAX
+            self.jump_amount = self.jump_max
+            while horizontal_up_collision(self):
+                self.rect.y -= 1
+                self.standing = True
+            self.rect.y += 1
+        elif not horizontal_down_collision(self) and not horizontal_up_collision(self):
+            if self.standing:
+                self.jump_amount -= 1
+            self.standing = False
+            self.is_jump = True
+            self.rect.y -= self.vel_y
+            if self.vel_y > FALLING_MAX:
+                self.vel_y -= FALLING_SPEED
+
+            if horizontal_up_collision(self):
+                while horizontal_up_collision(self):
+                    self.rect.y -= 1
+                self.rect.y += 1
+            elif horizontal_down_collision(self):
+                while horizontal_down_collision(self):
+                    self.rect.y += 1
+                self.vel_y = -1
+        """print(platform_collision(self.ground_border), platform_collision(self), self.ground_border.rect, 
+        self.rect) """
+        if platform_collision(
+                self.ground_border) and self.is_jump is True and self.standing is False and not self.is_down and self.vel_y < 0:
+            self.is_jump = False
+            self.knocked_back = False
+            self.jump_amount = self.jump_max
+            self.vel_y = FALLING_MAX
+            while platform_collision(self):
+                self.rect.y -= 1
+                self.standing = True
+            jump_tick = 0
+            self.rect.y += 1
+            return
 
     def def_attack(self):
         global can_attack
         if self.attack_type == 0:
             if self.is_down and self.standing is False:
                 self.attack_type = 2
-            else:
+            elif self.is_down is False:
                 self.attack_type = 1
         elif self.attack_type == 1:
             attack_sprite = pygame.sprite.Sprite()
-            attack_sprite.image = pygame.Surface([BLOCK_SIZE - 2, 2 * BLOCK_SIZE - 2])
-            pygame.draw.rect(attack_sprite.image, (0, 0, 255), (0, 0, BLOCK_SIZE - 2, BLOCK_SIZE * 2 - 2))
+            attack_sprite.image = pygame.Surface([1.5 * BLOCK_SIZE - 2, 2.5 * BLOCK_SIZE - 3])
+            pygame.draw.rect(attack_sprite.image, (0, 0, 255), (0, 0, 1.5 * BLOCK_SIZE - 2, 2.5 * BLOCK_SIZE - 3))
             if self.right:
-                attack_sprite.rect = pygame.Rect(self.rect.x + self.rect.w - 1, self.rect.y, BLOCK_SIZE - 2,
-                                                 2 * BLOCK_SIZE - 2)
+                attack_sprite.rect = pygame.Rect(self.rect.x + 1 + BLOCK_SIZE // 2, self.rect.y - BLOCK_SIZE // 2, 1.5 * BLOCK_SIZE - 2,
+                                                 2.5 * BLOCK_SIZE - 3)
             else:
-                attack_sprite.rect = pygame.Rect(self.rect.x - self.rect.w + 2, self.rect.y, BLOCK_SIZE - 2,
-                                                 2 * BLOCK_SIZE - 2)
+                attack_sprite.rect = pygame.Rect(self.rect.x + 1 - BLOCK_SIZE, self.rect.y - BLOCK_SIZE // 2, 1.5 * BLOCK_SIZE - 2,
+                                                 2.5 * BLOCK_SIZE - 3)
             self.attack.empty()
             self.attack.add(attack_sprite)
-            if horizontal_down_collision(attack_sprite) or horizontal_up_collision(attack_sprite) or vertical_collision(attack_sprite):
-                self.attack_type = 0
-                can_attack = False
-                pygame.event.clear(1)
-                pygame.time.set_timer(1, ATTACK_COOLDOWN)
 
         elif self.attack_type == 2:
             attack_sprite = pygame.sprite.Sprite()
-            attack_sprite.image = pygame.Surface([round(BLOCK_SIZE // 2) - 2, BLOCK_SIZE - 2])
-            pygame.draw.rect(attack_sprite.image, (0, 0, 255), (0, 0, round(BLOCK_SIZE // 2) - 2, BLOCK_SIZE - 2))
-            attack_sprite.rect = pygame.Rect(self.rect.x + self.rect.w // 4 + 2, self.rect.y + self.rect.h + 1,
-                                             round(BLOCK_SIZE // 2) - 2, BLOCK_SIZE - 2)
+            attack_sprite.image = pygame.Surface([round(BLOCK_SIZE // 2) - 1, BLOCK_SIZE - 2])
+            pygame.draw.rect(attack_sprite.image, (0, 0, 255), (0, 0, round(BLOCK_SIZE // 2) - 1, BLOCK_SIZE - 2))
+            attack_sprite.rect = pygame.Rect(self.rect.x + self.rect.w // 4 + 1, self.rect.y + self.rect.h - 2,
+                                             round(BLOCK_SIZE // 2) - 1, BLOCK_SIZE - 2)
             self.attack.empty()
             self.attack.add(attack_sprite)
-            if horizontal_down_collision(attack_sprite) or horizontal_up_collision(attack_sprite) or vertical_collision(
-                    attack_sprite):
-                self.attack_type = 0
-                can_attack = False
-                pygame.event.clear(1)
-                pygame.time.set_timer(1, ATTACK_COOLDOWN)
-
 
     def draw_health(self):
-        health_surface = pygame.Surface([10 * self.max_hp, 32])
+        health_surface = pygame.Surface([round(1.5 * self.max_hp), 32])
         pygame.draw.rect(health_surface, pygame.Color("red"),
                          (0, 0, health_surface.get_width(), health_surface.get_height()))
-        pygame.draw.rect(health_surface, pygame.Color("green"),
-                         (0, 0, round(health_surface.get_width() / self.max_hp * self.hp), health_surface.get_height()))
-        hp_text = create_text("{}/{}".format(self.hp, self.max_hp), "data\\CenturyGothic-Bold.ttf", 20, pygame.Color("white"))
+        if self.hp > 0:
+            pygame.draw.rect(health_surface, pygame.Color("green"),
+                             (0, 0, round(health_surface.get_width() / self.max_hp * self.hp), health_surface.get_height()))
+        hp_text = create_text("{}/{}".format(self.hp, self.max_hp), "data\\CenturyGothic-Bold.ttf", 20,
+                              pygame.Color("white"))
         health_surface.blit(hp_text, (6, 2))
         return health_surface
+
+    def take_damage(self, damage, direction):
+        global can_attack
+        if self.is_blocking:
+            self.hp -= round(damage * (self.damage_resistance - self.block_amount))
+        else:
+            self.hp -= round(damage * self.damage_resistance)
+            self.knock_back(direction)
+            pygame.event.clear(1)
+            self.attack_type = 0
+            can_attack = True
+        if self.hp <= 0:
+            self.hp = 0
+            self.death()
+        self.i_frames = 20
+
+    def knock_back(self, direction):
+        self.vel_y = 6
+        self.standing = False
+        self.is_jump = True
+        if direction == "left":
+            self.right = True
+            self.left = False
+        else:
+            self.right = False
+            self.left = True
+        self.rect.y -= 2
+        self.knocked_back = True
+
+    def death(self):
+        print("you are DED")
+
 
 
 # ---------------------------------------CODE--------------------------------------------------------------------------
@@ -570,6 +790,9 @@ next_level_vertical_border_group = pygame.sprite.Group()
 hero, level_width, level_height, next_levels_pos = load_and_generate_map(f"map_{str(CURRENT_MAP)}.txt")
 the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
 can_attack = True
+jump_tick = 0
+asd = Frog(4, 4, BLOCK_SIZE, BLOCK_SIZE)
+all_enemies.append(asd)
 
 
 def init_images():
@@ -577,15 +800,7 @@ def init_images():
     settings_icon = load_image("settings.png").convert_alpha()
     back_arrow_icon = load_image("back_arrow.png").convert_alpha()
     leader_board_icon = load_image("leader_board_icon.png", (145, 160, 161)).convert_alpha()
-    health_bar_0 = load_image("health_bar_0.png", (255, 255, 255)).convert_alpha()
-    health_bar_1 = load_image("health_bar_1.png", (255, 255, 255)).convert_alpha()
-    health_bar_2 = load_image("health_bar_2.png", (255, 255, 255)).convert_alpha()
-    health_bar_3 = load_image("health_bar_3.png", (255, 255, 255)).convert_alpha()
     IMAGES["pause-icon"] = pause_icon
-    IMAGES["health_bar_0"] = health_bar_0
-    IMAGES["health_bar_1"] = health_bar_1
-    IMAGES["health_bar_2"] = health_bar_2
-    IMAGES["health_bar_3"] = health_bar_3
     IMAGES["settings"] = settings_icon
     IMAGES["leader_board"] = leader_board_icon
     IMAGES["back_arrow"] = back_arrow_icon
@@ -620,7 +835,7 @@ def reset_level():
     all_blocks = pygame.sprite.Group()
     all_enemies_sprite = pygame.sprite.Group()
     all_prujinks = pygame.sprite.Group()
-    
+
     block_vertical_borders = pygame.sprite.Group()
     block_down_horizontal_borders = pygame.sprite.Group()
     block_up_horizontal_borders = pygame.sprite.Group()
@@ -642,7 +857,7 @@ def check_and_change_level(group):
                 hero, level_width, level_height, next_levels_pos = load_and_generate_map(f"map_{str(CURRENT_MAP)}.txt",
                                                                                          new_pos, collide_obj.direction)
                 hero.vel_x, hero.vel_y = hero_x, hero_y
-                the_big_screen = pygame.Surface([level_height * BLOCK_SIZE, level_width * BLOCK_SIZE])
+                the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
                 return
 
 
@@ -651,11 +866,15 @@ while running:
         if event.type == pygame.QUIT:
             running = False
         if event.type == 1:
-            if hero.attack_type != 0:
+            if hero.attack_type != 0 and can_attack:
+                can_attack = False
+                pygame.time.set_timer(1, ATTACK_TIME)
+            elif hero.attack_type != 0:
                 hero.attack_type = 0
                 can_attack = False
                 pygame.event.clear(1)
                 pygame.time.set_timer(1, ATTACK_COOLDOWN)
+                hero.attack.empty()
             else:
                 can_attack = True
                 pygame.event.clear(1)
@@ -669,39 +888,61 @@ while running:
     check_and_change_level(next_level_vertical_border_group)
     if keys[pygame.K_ESCAPE]:
         pause()
-    if keys[pygame.K_UP] and not hero.is_jump and (horizontal_up_collision(hero) or platform_collision(hero)):
-        hero.is_jump = True
-        hero.vel_y = -(FALLING_MAX * 2)
-        hero.rect.y -= 2
-        hero.standing = False
-    if keys[pygame.K_LEFT]:
+    if keys[pygame.K_w] and hero.jump_amount > 0 and not hero.is_blocking and not hero.knocked_back:
+        if jump_tick == 0:
+            jump_tick = 30
+            hero.is_jump = True
+            hero.jump_amount -= 1
+            if hero.vel_y < 0:
+                hero.vel_y = -(FALLING_MAX * 2)
+            else:
+                hero.vel_y -= (FALLING_MAX * 2)
+                if hero.vel_y > -round(FALLING_MAX * 2.5):
+                    hero.vel_y = -round(FALLING_MAX * 2.5)
+            hero.rect.y -= 2
+            hero.standing = False
+    if keys[pygame.K_a] and not hero.is_blocking and not hero.knocked_back:
         hero.left = True
         hero.right = False
         hero.rect.x -= hero.vel_x
         while vertical_collision(hero):
             hero.rect.x += 1
-    if keys[pygame.K_RIGHT]:
+    if keys[pygame.K_d] and not hero.is_blocking and not hero.knocked_back:
         hero.left = False
         hero.right = True
         hero.rect.x += hero.vel_x
         while vertical_collision(hero):
             hero.rect.x -= 1
-    if keys[pygame.K_DOWN]:
+    if keys[pygame.K_s] and not hero.is_blocking and not hero.knocked_back:
         hero.is_down = True
     else:
         hero.is_down = False
-    if keys[pygame.K_j] and can_attack and hero.attack_type == 0:
-        hero.def_attack()
-        pygame.time.set_timer(1, ATTACK_TIME)
+    if keys[pygame.K_j] and can_attack and hero.attack_type == 0 and not hero.knocked_back:
+        if hero.is_down and hero.standing is False:
+            pygame.time.set_timer(1, ATTACK_SWING)
+            hero.attack_type = 2
+        elif hero.is_down is False:
+            pygame.time.set_timer(1, ATTACK_SWING)
+            hero.attack_type = 1
+    if keys[pygame.K_k] and not hero.knocked_back:
+        hero.is_blocking = True
+    else:
+        hero.is_blocking = False
     if prujinka_collision(hero):
+        jump_tick = 0
+        hero.jump_amount = hero.jump_max
+        hero.jump_amount -= 1
         hero.rect.y -= 2
         hero.is_jump = True
         hero.standing = False
         hero.vel_y = - int(FALLING_MAX * 2.5)
+    damage_check()
     all_hero.update()
     all_enemies_sprite.update()
     draw_main_screen()
     draw_overlapping_screen()
+    if jump_tick > 0:
+        jump_tick -= 1
     clock.tick(FPS)
     # pygame.draw.rect(screen, pygame.Color("green"), (hero.rect.x, hero.rect.y, hero.rect.width, hero.rect.height), 1)
     pygame.display.flip()
