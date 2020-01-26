@@ -253,9 +253,11 @@ def load_and_generate_map(filename, new_pos=None):
             if level[y][x] == '*':
                 Prujinka(x, y)
             if level[y][x] == '/':
+                print(x, y)
                 Ladder(x, y, angle=45)
             if level[y][x] == '\\':
-                Ladder(x - 1, y, angle=-45)
+                print(x - 1, y)
+                Ladder(x - 1, y, angle=135)
             if level[y][x] == '-':
                 if y == 0 or y == len(level) - 1:
                     if x > 0 and level[y][x - 1] != '-':
@@ -540,7 +542,6 @@ class Player(pygame.sprite.Sprite):
                 self.rect.y -= 1
                 self.standing = True
             self.rect.y += 1
-            return
         if ladder_collision(self):
             self.is_jump = False
             self.standing = True
@@ -670,11 +671,12 @@ draw_overlapping_screen()
 def reset_level():
     global all_hero, all_blocks, all_enemies_sprite, all_prujinks, block_vertical_borders, \
         block_down_horizontal_borders, block_up_horizontal_borders, platform_horizontal_borders, \
-        next_level_horizontal_border_group, next_level_vertical_border_group
+        next_level_horizontal_border_group, next_level_vertical_border_group, all_ladders
     all_hero = pygame.sprite.Group()
     all_blocks = pygame.sprite.Group()
     all_enemies_sprite = pygame.sprite.Group()
     all_prujinks = pygame.sprite.Group()
+    all_ladders = pygame.sprite.Group()
 
     block_vertical_borders = pygame.sprite.Group()
     block_down_horizontal_borders = pygame.sprite.Group()
@@ -724,7 +726,8 @@ while running:
     check_and_change_level(next_level_vertical_border_group)
     if keys[pygame.K_ESCAPE]:
         pause()
-    if keys[pygame.K_UP] and not hero.is_jump and (horizontal_up_collision(hero) or platform_collision(hero) or ladder_collision(hero)):
+    if keys[pygame.K_UP] and not hero.is_jump and (
+            horizontal_up_collision(hero) or platform_collision(hero) or ladder_collision(hero)):
         hero.is_jump = True
         hero.vel_y = -(FALLING_MAX * 2)
         hero.rect.y -= 2
