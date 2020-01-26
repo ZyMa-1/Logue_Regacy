@@ -221,6 +221,58 @@ def leader_board():
         tick += 1
 
 
+class Line:
+    def __init__(self, x1, y1, x2, y2):
+        self.rect = pygame.Rect(min(x1, x2), min(y1, y2), max(x1, x2) - min(x1, x2), max(y1, y2) - min(y1, y2))
+
+    def draw(self):
+        pygame.draw.rect(screen, pygame.Color("gray"), self.rect, 0)
+
+
+class Upgrade_cart(pygame.sprite.Sprite):
+    image_0 = pygame.Surface([60, 60]).convert_alpha()
+    image_1 = pygame.Surface([60, 60]).convert_alpha()
+    image_1.fill(pygame.Color("blue"))
+    for y in range(60):
+        for x in range(60):
+            r, g, b, a = image_1.get_at()
+            image_1.set_at((y, x), pygame.Color(r // 2, g // 2, b // 2, a))
+    image_2 = image_0 = pygame.Surface([60, 60]).convert_alpha()
+    image_2.fill(pygame.Color("blue"))
+
+    def __init__(self, x, y):  # pixels
+        super().__init__(all_blocks)
+        self.image = Upgrade_cart.image
+        self.rect = self.image.get_rect()
+        self.rect.x, self.rect.y = x, y
+        self.on = 0
+        w, h = self.rect.w, self.rect.h
+
+    def connect_lines(self, lines_list):
+        self.lines_list = lines_list
+
+    def is_cover(self, pos):
+        if self.rect.collidepoint(pos):
+            self.on += 1
+
+    def update(self):
+        if self.on == 0:
+            self.image = Upgrade_cart.image_0
+        elif self.on == 1:
+            self.image = Upgrade_cart.image_1
+        else:
+            self.image = Upgrade_cart.image_2
+
+    def draw(self):
+        screen.blit(self.image, (210, 410))
+        for line in range(self.lines_list):
+            line.draw()
+
+
+def shop():
+    upgrade_tree = pygame.Surface([500, 500]).convert_alpha()
+
+
 def horizontal_up_collision(item):
     return 0 if pygame.sprite.spritecollideany(item, block_up_horizontal_borders) is None else 1
 
