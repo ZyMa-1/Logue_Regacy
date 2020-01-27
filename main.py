@@ -49,7 +49,9 @@ def draw_main_screen():
     all_blocks.draw(the_big_screen)
     all_enemies_sprite.draw(the_big_screen)
     all_hero.draw(the_big_screen)
+    the_big_screen.blit(hero.attack_image.image, (hero.attack_image.rect.x, hero.attack_image.rect.y))
     all_projectiles_sprite.draw(the_big_screen)
+    all_npcs.draw(the_big_screen)
     cutout_x, cutout_y = camera_adjustment()
     cutout = pygame.Rect(cutout_x, cutout_y, size[0], size[1])
     screen.blit(the_big_screen, (0, 0), cutout)
@@ -63,6 +65,7 @@ def draw_overlapping_screen():
     overlapping_screen.blit(hero.draw_health(), (80, 26))
     overlapping_screen.blit(gold_display(), (674, 10))
     overlapping_screen.blit(score_text, (674, 26))
+    overlapping_screen.blit(tutorial_board, (624, 100))
 
 
 def dist(x1, y1, x2, y2):
@@ -553,34 +556,315 @@ def damage_check():
             all_projectiles_sprite.remove(projectile)
 
 
+class OmniTurret(pygame.sprite.Sprite):
+    image_idle = load_image(os.path.join("entity_images\\OmniTurret\\idle.png")).convert_alpha()
+    image_projectile = load_image(os.path.join("entity_images\\Projectiles\\OmniTurret.png")).convert_alpha()
+
+    def __init__(self, x, y, a, b):  # coordinates not in pixels
+        super().__init__(all_enemies_sprite)
+        x *= BLOCK_SIZE
+        y *= BLOCK_SIZE
+
+        self.rect = pygame.Rect(x, y, 300 - 1, 300 - 1)
+        self.image = pygame.Surface([300 - 2, 300 - 2])
+        self.image.blit(OmniTurret.image_idle, (0, 1))
+
+        self.score_reward = 1000
+        self.gold_reward = 1000
+
+        self.shot_damage = 40
+        self.shot_cooldown = 150
+        self.shot_speed = 3
+
+        self.attack_damage = 30
+        self.i_frames = 0
+
+        self.hp = 150
+        self.max_hp = 150
+
+    def shoot(self):
+        projectile_list = []
+        projl1 = (self.rect.x - 24, self.rect.y + round(self.rect.h / 3), 24, 24, OmniTurret.image_projectile,
+                           self.shot_speed, self.shot_damage, ["left"])
+        projectile_list.append(projl1)
+
+        projl2 = (self.rect.x - 24, self.rect.y + round(self.rect.h / 3) + 74, 24, 24, OmniTurret.image_projectile,
+                            self.shot_speed, self.shot_damage, ["left"])
+        projectile_list.append(projl2)
+
+        projr1 = (self.rect.x + self.rect.w, self.rect.y + round(self.rect.h / 3), 24, 24, OmniTurret.image_projectile,
+                            self.shot_speed, self.shot_damage, ["right"])
+        projectile_list.append(projr1)
+
+        projr2 = (self.rect.x + self.rect.w, self.rect.y + round(self.rect.h / 3) + 74, 24, 24,
+                            OmniTurret.image_projectile,
+                            self.shot_speed, self.shot_damage, ["right"])
+        projectile_list.append(projr2)
+
+        proju1 = (self.rect.x + round(self.rect.w / 3), self.rect.y - 24, 24, 24,
+                            OmniTurret.image_projectile,
+                            self.shot_speed, self.shot_damage, ["up"])
+        projectile_list.append(proju1)
+
+        proju2 = (self.rect.x + round(self.rect.w / 3) + 74, self.rect.y - 24, 24, 24,
+                            OmniTurret.image_projectile,
+                            self.shot_speed, self.shot_damage, ["up"])
+        projectile_list.append(proju2)
+
+        projd1 = (self.rect.x + round(self.rect.w / 3), self.rect.y + self.rect.h, 24, 24,
+                            OmniTurret.image_projectile,
+                            self.shot_speed, self.shot_damage, ["down"])
+        projectile_list.append(projd1)
+
+        projd2 = (self.rect.x + round(self.rect.w / 3) + 74, self.rect.y + self.rect.h, 24, 24,
+                            OmniTurret.image_projectile,
+                            self.shot_speed, self.shot_damage, ["down"])
+        projectile_list.append(projd2)
+
+        proj_leftup1 = (self.rect.x + 20, self.rect.y - 20, 24, 24,
+                            OmniTurret.image_projectile,
+                            self.shot_speed, self.shot_damage, ["left", "up"])
+        projectile_list.append(proj_leftup1)
+
+        proj_leftup2 = (self.rect.x - 30, self.rect.y + 30, 24, 24,
+                            OmniTurret.image_projectile,
+                            self.shot_speed, self.shot_damage, ["left", "up"])
+        projectile_list.append(proj_leftup2)
+
+        proj_leftdown1 = (self.rect.x + 20 + 15, self.rect.y - 20 + 320, 24, 24,
+                                  OmniTurret.image_projectile,
+                                  self.shot_speed, self.shot_damage, ["left", "down"])
+        projectile_list.append(proj_leftdown1)
+        proj_leftdown2 = (self.rect.x - 30 + 15, self.rect.y + 220 + 30, 24, 24,
+                                  OmniTurret.image_projectile,
+                                  self.shot_speed, self.shot_damage, ["left", "down"])
+        projectile_list.append(proj_leftdown2)
+
+        proj_rightup1 = (self.rect.x + 20 + 260, self.rect.y + 30, 24, 24,
+                                  OmniTurret.image_projectile,
+                                  self.shot_speed, self.shot_damage, ["right", "up"])
+        projectile_list.append(proj_rightup1)
+        proj_rightup2 = (self.rect.x - 30 + 280, self.rect.y - 10, 24, 24,
+                                  OmniTurret.image_projectile,
+                                  self.shot_speed, self.shot_damage, ["right", "up"])
+        projectile_list.append(proj_rightup2)
+
+        proj_rightdown1 = (self.rect.x + 20 + 260, self.rect.y + 30 + 220, 24, 24,
+                                   OmniTurret.image_projectile,
+                                   self.shot_speed, self.shot_damage, ["right", "down"])
+        projectile_list.append(proj_rightdown1)
+        proj_rightdown2 = (self.rect.x - 30 + 280, self.rect.y - 10 + 300, 24, 24,
+                                   OmniTurret.image_projectile,
+                                   self.shot_speed, self.shot_damage, ["right", "down"])
+        projectile_list.append(proj_rightdown2)
+
+        for i in range(8):
+            asd = random.choice(projectile_list)
+            pro = Projectile(asd[0], asd[1], asd[2], asd[3], asd[4], asd[5], asd[6], asd[7])
+            all_projectiles_sprite.add(pro)
+            all_projectiles.append(pro)
+
+    def update(self):
+        if self.shot_cooldown > 0:
+            self.shot_cooldown -= 1
+        if self.shot_cooldown == 0:
+            self.shoot()
+            self.shot_cooldown = 150
+        if self.i_frames > 0:
+            self.i_frames -= 1
+
+    def take_damage(self, direction):
+        self.i_frames = 20
+        self.hp -= hero.attack_damage
+        if hero.attack_type == 2:
+            hero.vel_y = 12
+            hero.is_jump = True
+            hero.standing = False
+            hero.jump_amount -= 1
+        if self.hp <= 0:
+            self.death()
+
+    def draw_health(self):
+        health_surface = pygame.Surface([round(2 * self.max_hp) + 140, 32])
+        if self.hp > 0:
+            pygame.draw.rect(health_surface, pygame.Color("red"),
+                            (140, 0, round(round(2 * self.max_hp) / self.max_hp * self.hp),
+                            health_surface.get_height()))
+        pygame.draw.rect(health_surface, pygame.Color("green"),
+                         (140, 0, round(round(2 * self.max_hp)),
+                          health_surface.get_height()), 1)
+        hp_text = create_text("{}/{}".format(self.hp, self.max_hp), "data\\CenturyGothic-Bold.ttf", 20,
+                            pygame.Color("white"))
+        boss_text = create_text("OMNI-TURRET:", "data\\CenturyGothic-Bold.ttf", 20,
+                            pygame.Color("white"))
+        health_surface.blit(boss_text, (0, 0))
+        health_surface.blit(hp_text, (146, 2))
+        return health_surface
+
+    def death(self):
+        global gold
+        all_enemies_sprite.remove(self)
+        all_enemies.remove(self)
+        self.kill()
+        gold += self.gold_reward
+        hero.score += self.score_reward
+
+
+class Trader(pygame.sprite.Sprite):
+    image_idle = load_image(os.path.join("entity_images\\Trader\\idle.png")).convert_alpha()
+
+    def __init__(self, x, y):  # coordinates not in pixels
+        super().__init__(all_npcs)
+
+        x *= BLOCK_SIZE
+        y *= BLOCK_SIZE
+
+        self.rect = pygame.Rect(x, y, 155, 300)
+        self.image = pygame.Surface([155, 300])
+        self.image.blit(Trader.image_idle , (0, 0))
+
+    def update(self):
+        if pygame.sprite.spritecollideany(self, all_hero):
+            if hero.talk:
+                pass
+                "МЕНЮШКА ТУТ"
+
+
+class Gopnik(pygame.sprite.Sprite):
+    image_idle = load_image(os.path.join("entity_images\\Gopnik\\gopnik.png")).convert_alpha()
+
+    def __init__(self, x, y):  # coordinates not in pixels
+        super().__init__(all_npcs)
+
+        x *= BLOCK_SIZE
+        y *= BLOCK_SIZE
+
+        self.rect = pygame.Rect(x, y, 48, 48)
+        self.image = pygame.Surface([48, 48])
+        self.image.blit(pygame.transform.flip(Gopnik.image_idle, 1, 0) , (0, 0))
+
+    def update(self):
+        global gold
+        if pygame.sprite.spritecollideany(self, all_hero):
+            gold = gold * hero.gop_stop
+            all_npcs.remove(self)
+            self.kill()
+
+
 class Projectile(pygame.sprite.Sprite):
-    def __init__(self, x, y, wi, he, image, vel_x, damage, dir):  # coordinates not in pixels
-        super().__init__(all_projectiles_sprite)
+    def __init__(self, x, y, wi, he, image, vel_x, damage, directions):  # coordinates not in pixels
+        super().__init__()
         self.vel_x = vel_x
 
         self.rect = pygame.Rect(x, y, wi, he)
         self.image = pygame.Surface([wi, he])
         self.image.blit(image, (0, 0))
 
-        if dir == "right":
-            self.right = True
-            self.left = False
-            self.image.fill(pygame.SRCALPHA)
-            self.image.blit(pygame.transform.flip(image, 1, 0), (0, 0))
-        else:
-            self.right = False
-            self.left = True
+        self.up = False
+        self.down = False
+        self.right = False
+        self.left = False
+
+        for dir in directions:
+            if dir == "right":
+                self.right = True
+                self.left = False
+                self.image.fill(pygame.SRCALPHA)
+                self.image.blit(pygame.transform.flip(image, 1, 0), (0, 0))
+            elif dir == "left":
+                self.right = False
+                self.left = True
+            elif dir == "up":
+                self.up = True
+            elif dir == "down":
+                self.down = True
 
         self.attack_damage = damage
 
     def update(self):
         if self.right:
             self.rect.x += self.vel_x
-        else:
+        if self.left:
             self.rect.x -= self.vel_x
+        if self.up:
+            self.rect.y -= self.vel_x
+        if self.down:
+            self.rect.y += self.vel_x
         if vertical_collision(self) or horizontal_up_collision(self) or horizontal_down_collision(self) or platform_collision(self) or pygame.sprite.spritecollideany(self, next_level_vertical_border_group):
             all_projectiles.remove(self)
             all_projectiles_sprite.remove(self)
+            self.kill()
+
+
+class QuadraTurret(pygame.sprite.Sprite):
+    image_idle = load_image(os.path.join("entity_images\\QuadraTurret\\idle.png")).convert_alpha()
+    image_projectile = load_image(os.path.join("entity_images\\Projectiles\\Turret.png")).convert_alpha()
+
+    def __init__(self, x, y, wi, he):  # coordinates not in pixels
+        super().__init__(all_enemies_sprite)
+        x *= BLOCK_SIZE
+        y *= BLOCK_SIZE
+
+        self.rect = pygame.Rect(x, y, wi - 1, he - 1)
+        self.image = pygame.Surface([wi - 2, he - 2])
+        self.image.blit(QuadraTurret.image_idle, (0, 1))
+
+        self.score_reward = 200
+        self.gold_reward = 20
+
+        self.shot_damage = 20
+        self.shot_cooldown = 300
+        self.shot_speed = 7
+
+        self.attack_damage = 5
+        self.i_frames = 0
+
+        self.hp = 2
+
+    def shoot(self):
+        projl = Projectile(self.rect.x - 16, self.rect.y + round(self.rect.h / 3), 16, 16, Turret.image_projectile, self.shot_speed, self.shot_damage, ["left"])
+        all_projectiles_sprite.add(projl)
+        all_projectiles.append(projl)
+        projr = Projectile(self.rect.x + self.rect.w + 16, self.rect.y + round(self.rect.h / 3), 16, 16, pygame.transform.flip(Turret.image_projectile, 1, 0),
+                          self.shot_speed, self.shot_damage, ["right"])
+        all_projectiles_sprite.add(projr)
+        all_projectiles.append(projr)
+        projd = Projectile(self.rect.x + 16, self.rect.y + self.rect.h, 16, 16, Turret.image_projectile,
+                          self.shot_speed, self.shot_damage, ["down"])
+        all_projectiles_sprite.add(projd)
+        all_projectiles.append(projd)
+        proju = Projectile(self.rect.x + 16, self.rect.y, 16, 16, Turret.image_projectile,
+                          self.shot_speed, self.shot_damage, ["up"])
+        all_projectiles_sprite.add(proju)
+        all_projectiles.append(proju)
+
+    def update(self):
+        if self.shot_cooldown > 0:
+            self.shot_cooldown -= 1
+        if self.shot_cooldown == 0:
+            self.shoot()
+            self.shot_cooldown = 300
+        if self.i_frames > 0:
+            self.i_frames -= 1
+
+    def take_damage(self, direction):
+        self.i_frames = 20
+        self.hp -= hero.attack_damage
+        if hero.attack_type == 2:
+            hero.vel_y = 12
+            hero.is_jump = True
+            hero.standing = False
+            hero.jump_amount -= 1
+        if self.hp <= 0:
+            self.death()
+
+    def death(self):
+        global gold
+        all_enemies_sprite.remove(self)
+        all_enemies.remove(self)
+        self.kill()
+        gold += self.gold_reward
+        hero.score += self.score_reward
 
 
 class Turret(pygame.sprite.Sprite):
@@ -628,11 +912,9 @@ class Turret(pygame.sprite.Sprite):
             dir = "right"
             image = pygame.transform.flip(image, 1, 0)
             x = self.rect.x + self.rect.w + 16
-        proj = Projectile(x, y, 16, 16, image, self.vel_x, self.shot_damage, dir)
+        proj = Projectile(x, y, 16, 16, image, self.vel_x, self.shot_damage, [dir])
         all_projectiles_sprite.add(proj)
         all_projectiles.append(proj)
-
-
 
     def update(self):
         if self.shot_cooldown > 0:
@@ -708,6 +990,210 @@ class Turret(pygame.sprite.Sprite):
         global gold
         all_enemies_sprite.remove(self)
         all_enemies.remove(self)
+        self.kill()
+        gold += self.gold_reward
+        hero.score += self.score_reward
+
+
+class JumpTurret(pygame.sprite.Sprite):
+    image_idle = load_image(os.path.join("entity_images\\JumpTurret\\idle.png")).convert_alpha()
+    image_move = load_image(os.path.join("entity_images\\JumpTurret\\move.png")).convert_alpha()
+    image_projectile = load_image(os.path.join("entity_images\\Projectiles\\Turret.png")).convert_alpha()
+
+    def __init__(self, x, y, wi, he):  # coordinates not in pixels
+        super().__init__(all_enemies_sprite)
+        x *= BLOCK_SIZE
+        y *= BLOCK_SIZE
+        self.vel_x = 7
+        self.vel_y = FALLING_MAX
+
+        self.rect = pygame.Rect(x, y, wi - 1, he - 1)
+        self.image = pygame.Surface([wi - 2, he - 2])
+        self.image.blit(JumpTurret.image_idle, (0, 1))
+        self.ground_border = Invisible_Rect(self.rect.x, self.rect.y + self.rect.h - 9, self.rect.x + self.rect.w,
+                                            self.rect.y + self.rect.h + 1)
+
+        self.right = True
+        self.left = False
+
+        self.score_reward = 250
+        self.gold_reward = 25
+
+        self.is_jump = False
+        self.standing = True
+        self.is_down = False
+        self.jump_cooldown = 100
+
+        self.attack_type = 0
+        self.attack = pygame.sprite.Group()
+        self.attack_damage = 10
+        self.i_frames = 0
+        self.knocked_back = False
+
+        self.shot_damage = 20
+        self.shot_cooldown = 250
+        self.shot_speed = 10
+
+        self.hp = 6
+
+    def jump(self):
+        if self.standing and not self.is_jump:
+            self.jump_cooldown = 100
+            self.is_jump = True
+            self.vel_y = -((hero.rect.y - self.rect.y) // 4)
+            if self.vel_y < 0:
+                self.vel_y = 10
+            elif self.vel_y > -round(FALLING_MAX * 2.2):
+                self.vel_y = -round(FALLING_MAX * 2.2)
+            self.rect.y -= 2
+            self.standing = False
+
+    def logic(self):
+        if hero.rect.x >= self.rect.x:
+            self.right = True
+            self.left = False
+        else:
+            self.right = False
+            self.left = True
+        if hero.rect.y >= self.rect.y + self.rect.h:
+            self.is_down = True
+        else:
+            self.is_down = False
+
+    def shoot(self):
+        dir = "left"
+        image = JumpTurret.image_projectile
+        x = self.rect.x - 16
+        y = self.rect.y + round(self.rect.h / 3)
+        if self.right:
+            dir = "right"
+            image = pygame.transform.flip(image, 1, 0)
+            x = self.rect.x + self.rect.w + 16
+        proj = Projectile(x, y, 16, 16, image, self.shot_speed, self.shot_damage, [dir])
+        all_projectiles_sprite.add(proj)
+        all_projectiles.append(proj)
+
+    def update(self):
+        if self.shot_cooldown > 0:
+            self.shot_cooldown -= 1
+        if self.shot_cooldown == 0:
+            self.shoot()
+            self.shot_cooldown = 250
+
+        if self.standing:
+            self.image.fill(pygame.SRCALPHA)
+            if self.right:
+                self.image.blit(pygame.transform.flip(JumpTurret.image_idle, 1, 0), (0, 1))
+            else:
+                self.image.blit(JumpTurret.image_idle, (0, 1))
+        else:
+            self.image.fill(pygame.SRCALPHA)
+            if self.right:
+                self.image.blit(pygame.transform.flip(JumpTurret.image_move, 1, 0), (0, 1))
+            else:
+                self.image.blit(JumpTurret.image_move, (0, 1))
+        if self.i_frames > 0:
+            self.i_frames -= 1
+        if self.knocked_back:
+            if self.left:
+                self.rect.x += 5
+                while vertical_collision(self) or pygame.sprite.spritecollideany(self, next_level_vertical_border_group):
+                    self.rect.x -= 1
+            else:
+                self.rect.x -= 5
+                while vertical_collision(self) or pygame.sprite.spritecollideany(self, next_level_vertical_border_group):
+                    self.rect.x += 1
+        if self.jump_cooldown == 0 and not self.knocked_back:
+            self.logic()
+            self.jump()
+        if not self.standing and not self.knocked_back:
+            if self.right:
+                self.rect.x += self.vel_x
+                while vertical_collision(self):
+                    self.rect.x -= 1
+                    self.right = False
+                    self.left = True
+            else:
+                self.rect.x -= self.vel_x
+                while vertical_collision(self):
+                    self.rect.x += 1
+                    self.right = True
+                    self.left = False
+        self.ground_border = Invisible_Rect(self.rect.x, self.rect.y + self.rect.h - 9, self.rect.x + self.rect.w,
+                                            self.rect.y + self.rect.h + 1)
+
+        if horizontal_down_collision(self):
+            while horizontal_down_collision(self):
+                self.rect.y += 1
+            self.vel_y = -1
+            self.rect.y -= self.vel_y
+        elif horizontal_up_collision(self) and self.is_jump is True and self.standing is False:
+            self.is_jump = False
+            self.jump_cooldown = 100
+            self.knocked_back = False
+            self.vel_y = FALLING_MAX
+            while horizontal_up_collision(self):
+                self.rect.y -= 1
+                self.standing = True
+            self.rect.y += 1
+        elif not horizontal_down_collision(self) and not horizontal_up_collision(self):
+            self.standing = False
+            self.is_jump = True
+            self.rect.y -= self.vel_y
+            if self.vel_y > FALLING_MAX:
+                self.vel_y -= FALLING_SPEED
+
+            if horizontal_up_collision(self):
+                while horizontal_up_collision(self):
+                    self.rect.y -= 1
+                self.rect.y += 1
+            elif horizontal_down_collision(self):
+                while horizontal_down_collision(self):
+                    self.rect.y += 1
+                self.vel_y = -1
+        if platform_collision(
+                self.ground_border) and self.is_jump is True and self.standing is False and not self.is_down and self.vel_y < 0:
+            self.is_jump = False
+            self.knocked_back = False
+            self.vel_y = FALLING_MAX
+            while platform_collision(self):
+                self.rect.y -= 1
+                self.standing = True
+            self.rect.y += 1
+        if self.jump_cooldown > 0:
+            self.jump_cooldown -= 1
+
+    def take_damage(self, direction):
+        self.i_frames = 20
+        self.hp -= hero.attack_damage
+        if hero.attack_type == 1:
+            self.knock_back(direction)
+        else:
+            hero.vel_y = 12
+            hero.is_jump = True
+            hero.standing = False
+            hero.jump_amount -= 1
+        if self.hp <= 0:
+            self.death()
+
+    def knock_back(self, direction):
+        self.vel_y = 8
+        self.standing = False
+        self.is_jump = True
+        if direction == "left":
+            self.right = True
+            self.left = False
+        else:
+            self.right = False
+            self.left = True
+        self.rect.y -= 2
+        self.knocked_back = True
+
+    def death(self):
+        global gold
+        all_enemies_sprite.remove(self)
+        all_enemies.remove(self)
+        self.kill()
         gold += self.gold_reward
         hero.score += self.score_reward
 
@@ -886,13 +1372,25 @@ class JumpBot(pygame.sprite.Sprite):
         global gold
         all_enemies_sprite.remove(self)
         all_enemies.remove(self)
+        self.kill()
         gold += self.gold_reward
         hero.score += self.score_reward
 
 
 class Player(pygame.sprite.Sprite):
-    image_body_idle = load_image(os.path.join("entity_images\\Hero\\idle-body.png")).convert_alpha()
-    image_move = [load_image(os.path.join("entity_images\\Hero\\move1-body.png")).convert_alpha(), load_image(os.path.join("entity_images\\Hero\\move2-body.png")).convert_alpha()]
+    image_body_idle = load_image(os.path.join("entity_images\\Hero\\body-idle.png")).convert_alpha()
+    image_move1 = load_image(os.path.join("entity_images\\Hero\\body-move1.png")).convert_alpha()
+    image_move2 = load_image(os.path.join("entity_images\\Hero\\body-move2.png")).convert_alpha()
+    image_body_move = [image_move1, image_move2]
+    image_body_fall = load_image(os.path.join("entity_images\\Hero\\body-fall.png")).convert_alpha()
+    image_body_jump = load_image(os.path.join("entity_images\\Hero\\body-jump.png")).convert_alpha()
+    image_body_damage = load_image(os.path.join("entity_images\\Hero\\body-damage.png")).convert_alpha()
+
+    image_shield_active = load_image(os.path.join("entity_images\\Hero\\shield-active.png")).convert_alpha()
+    image_shield_idle = load_image(os.path.join("entity_images\\Hero\\shield-idle.png")).convert_alpha()
+    image_shield_damage = load_image(os.path.join("entity_images\\Hero\\shield-damage.png")).convert_alpha()
+
+    image_sword_idle = load_image(os.path.join("entity_images\\Hero\\sword-idle.png")).convert_alpha()
 
     def __init__(self, x, y):  # coordinates not in pixels
         super().__init__(all_hero)
@@ -902,14 +1400,17 @@ class Player(pygame.sprite.Sprite):
         self.vel_y = FALLING_MAX
 
         self.rect = pygame.Rect(x, y, BLOCK_SIZE - 1, 2 * BLOCK_SIZE - 1)
-        self.image = pygame.Surface([BLOCK_SIZE + 7, 2 * BLOCK_SIZE - 2])
-        self.image.blit(Player.image_body_idle, (7, 1))
+        self.image = pygame.Surface([BLOCK_SIZE - 2, 2 * BLOCK_SIZE - 2])
+        self.image.blit(Player.image_body_idle, (0, 1))
         self.ground_border = Invisible_Rect(self.rect.x, self.rect.y + self.rect.h - 9, self.rect.x + self.rect.w,
                                             self.rect.y + self.rect.h + 1)
 
         self.right = True
         self.left = False
+        self.moving = False
+        self.walk_count = 29
         self.score = 0
+        self.gop_stop = 0
 
         self.is_jump = False
         self.standing = True
@@ -923,23 +1424,89 @@ class Player(pygame.sprite.Sprite):
         self.attack_damage = 1
         self.i_frames = 0
         self.knocked_back = False
+        self.attack_image = pygame.sprite.Sprite()
+        self.attack_image.image = pygame.Surface([1.5 * BLOCK_SIZE - 2, 2.5 * BLOCK_SIZE - 3])
+        self.attack_image.rect = pygame.Rect(self.rect.x + 1 + BLOCK_SIZE // 2, self.rect.y - BLOCK_SIZE // 2, 1.5 * BLOCK_SIZE - 2,
+                                                 2.5 * BLOCK_SIZE - 3)
 
         self.max_hp = 100
         self.hp = 100
         self.block_amount = 0.2
         self.damage_resistance = 1
+        self.talk = False
+
+    def animate(self):
+        self.image.fill(pygame.SRCALPHA)
+        if self.standing:
+            if self.moving:
+                if self.right:
+                    self.image.blit(pygame.transform.flip(Player.image_body_move[self.walk_count // 15], 1, 0), (0, 1))
+                else:
+                    self.image.blit(Player.image_body_move[self.walk_count // 15], (0, 1))
+            else:
+                if self.right:
+                    self.image.blit(pygame.transform.flip(Player.image_body_idle, 1, 0), (0, 1))
+                else:
+                    self.image.blit(Player.image_body_idle, (0, 1))
+        else:
+            if self.vel_y >= 0:
+                if self.right:
+                    self.image.blit(pygame.transform.flip(Player.image_body_jump, 1, 0), (0, 1))
+                else:
+                    self.image.blit(Player.image_body_jump, (0, 1))
+            else:
+                if self.right:
+                    self.image.blit(pygame.transform.flip(Player.image_body_fall, 1, 0), (0, 1))
+                else:
+                    self.image.blit(Player.image_body_fall, (0, 1))
+
+        if self.is_blocking:
+            if self.right:
+                self.image.blit(pygame.transform.flip(Player.image_shield_active, 1, 0), (0, 1))
+            else:
+                self.image.blit(Player.image_shield_active, (0, 1))
+        else:
+            if self.right:
+                self.image.blit(pygame.transform.flip(Player.image_shield_idle, 1, 0), (0, 1))
+            else:
+                self.image.blit(Player.image_shield_idle, (0, 1))
+
+        if self.right:
+            self.attack_image.image.blit(pygame.transform.flip(Player.image_sword_idle, 1, 0), (-15, 1))
+            self.attack_image.rect = pygame.Rect(self.rect.x + 1 + BLOCK_SIZE // 2, self.rect.y - BLOCK_SIZE // 2, 1.5 * BLOCK_SIZE - 2, 2.5 * BLOCK_SIZE - 3)
+        else:
+            self.attack_image.image.blit(Player.image_sword_idle, (15, 1))
+            self.attack_image.rect = pygame.Rect(self.rect.x + 1 + BLOCK_SIZE // 2, self.rect.y - BLOCK_SIZE // 2, 1.5 * BLOCK_SIZE - 2, 2.5 * BLOCK_SIZE - 3)
+
 
     def update(self):
+        if not self.moving:
+            self.walk_count = 29
+        else:
+            if self.walk_count > 0:
+                self.walk_count -= 1
+            if self.walk_count == 0:
+                self.walk_count = 29
+
+        self.animate()
+
+
         global jump_tick
         self.ground_border = Invisible_Rect(self.rect.x, self.rect.y + self.rect.h - 9, self.rect.x + self.rect.w,
                                             self.rect.y + self.rect.h + 1)
 
         if self.knocked_back:
             if self.right:
+                self.image.fill(pygame.SRCALPHA)
+                self.image.blit(pygame.transform.flip(Player.image_body_damage, 1, 0), (0, 1))
+                self.image.blit(pygame.transform.flip(Player.image_shield_damage, 1, 0), (0, 1))
                 self.rect.x -= 5
                 while vertical_collision(hero):
                     hero.rect.x += 1
             else:
+                self.image.fill(pygame.SRCALPHA)
+                self.image.blit(Player.image_body_damage, (0, 1))
+                self.image.blit(Player.image_shield_damage, (0, 1))
                 self.rect.x += 5
                 while vertical_collision(hero):
                     hero.rect.x -= 1
@@ -1080,6 +1647,7 @@ all_prujinks = pygame.sprite.Group()
 all_ladders = pygame.sprite.Group()
 all_enemies = []
 all_projectiles = []
+all_npcs = pygame.sprite.Group()
 
 block_vertical_borders = pygame.sprite.Group()
 block_down_horizontal_borders = pygame.sprite.Group()
@@ -1087,7 +1655,7 @@ block_up_horizontal_borders = pygame.sprite.Group()
 platform_horizontal_borders = pygame.sprite.Group()
 next_level_horizontal_border_group = pygame.sprite.Group()
 next_level_vertical_border_group = pygame.sprite.Group()
-enemy_types = [JumpBot, Turret]
+enemy_types = [JumpBot, Turret, JumpTurret, QuadraTurret]
 all_projectiles_sprite = pygame.sprite.Group()
 
 hero, level_width, level_height, next_levels_pos, true_width, true_height = load_and_generate_map("map.txt")
@@ -1095,7 +1663,23 @@ the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_
 can_attack = True
 jump_tick = 0
 
+gopnik = Gopnik(36, 11)
+trader = Trader(15, 10)
+
 score_text = create_text("Score: " + str(hero.score), os.path.join("data\\CenturyGothic.ttf"), 16, pygame.Color("white"))
+
+tutorial_board = pygame.Surface([160, 120])
+pygame.draw.rect(tutorial_board, pygame.Color("brown"), (0, 0, 160, 120), 10)
+tutorial_text = create_text("WASD           move", os.path.join("data\\CenturyGothic.ttf"), 16, pygame.Color("white"))
+tutorial_board.blit(tutorial_text, (10, 10))
+tutorial_text = create_text("J            attack", os.path.join("data\\CenturyGothic.ttf"), 16, pygame.Color("white"))
+tutorial_board.blit(tutorial_text, (10, 30))
+tutorial_text = create_text("K            shield", os.path.join("data\\CenturyGothic.ttf"), 16, pygame.Color("white"))
+tutorial_board.blit(tutorial_text, (10, 50))
+tutorial_text = create_text("L talk(with trader)", os.path.join("data\\CenturyGothic.ttf"), 16, pygame.Color("white"))
+tutorial_board.blit(tutorial_text, (10, 70))
+tutorial_text = create_text("gopnik steals gold!", os.path.join("data\\CenturyGothic.ttf"), 16, pygame.Color("white"))
+tutorial_board.blit(tutorial_text, (10, 90))
 
 
 def init_images():
@@ -1221,6 +1805,7 @@ while running:
                 x, y = pygame.mouse.get_pos()
                 if dist(x, y, 42, 42) <= 32:
                     pause()
+    hero.moving = False
     keys = pygame.key.get_pressed()
     check_and_change_level(next_level_horizontal_border_group)
     check_and_change_level(next_level_vertical_border_group)
@@ -1242,12 +1827,20 @@ while running:
     if keys[pygame.K_a] and not hero.is_blocking and not hero.knocked_back:
         hero.left = True
         hero.right = False
+        if hero.moving:
+            hero.moving = False
+        else:
+            hero.moving = True
         hero.rect.x -= hero.vel_x
         while vertical_collision(hero):
             hero.rect.x += 1
     if keys[pygame.K_d] and not hero.is_blocking and not hero.knocked_back:
         hero.left = False
         hero.right = True
+        if hero.moving:
+            hero.moving = False
+        else:
+            hero.moving = True
         hero.rect.x += hero.vel_x
         while vertical_collision(hero):
             hero.rect.x -= 1
@@ -1266,6 +1859,10 @@ while running:
         hero.is_blocking = True
     else:
         hero.is_blocking = False
+    if keys[pygame.K_l]:
+        hero.talk = True
+    else:
+        hero.talk = False
     if prujinka_collision(hero):
         jump_tick = 0
         hero.jump_amount = hero.jump_max
@@ -1277,6 +1874,7 @@ while running:
     damage_check()
     all_hero.update()
     all_projectiles_sprite.update()
+    all_npcs.update()
     all_enemies_sprite.update()
     draw_main_screen()
     draw_overlapping_screen()
