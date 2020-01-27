@@ -285,7 +285,6 @@ def load_and_generate_map(filename, new_pos=None):
             if level[y][x] == '\\':
                 Ladder(x - 1, y, angle=-45)
             if level[y][x] == '-':
-                print(map_y, map_x, y, x, len(level) - 1, true_width, true_height)
                 if y == 0 or y == len(level) - 1:
                     if x > 0 and level[y][x - 1] != '-':
                         if filename != "data\\maps\\map.txt" and (y == 0 and map_x == 3) or (
@@ -317,6 +316,18 @@ def load_and_generate_map(filename, new_pos=None):
                             next_levels_pos[DIRECTIONS["left"]] = (x, y)
                         else:
                             next_levels_pos[DIRECTIONS["right"]] = (x, y)
+    number_of_enemies = random.randint(max(1, map_x + map_y - 1), max(1, (map_x + map_y - 1)) * 2)
+    enemies_pos = set()
+    for y in range(len(level)):
+        for x in range(len(level[y])):
+            if y > 0 and (level[y][x] == ' ' or level[y][x] == '.'):
+                enemies_pos.add((x, y))
+    for i in enemies_pos:
+        if number_of_enemies == 0:
+            break
+        x, y = i
+        all_enemies.append(Frog(x, y, BLOCK_SIZE, BLOCK_SIZE))
+        number_of_enemies -= 1
     if player_x == 0 and player_y == 0:
         player_x, player_y = next_levels_pos[new_pos]
         if new_pos == DIRECTIONS["left"]:
@@ -772,7 +783,6 @@ class Player(pygame.sprite.Sprite):
                 self.standing = True
             jump_tick = 0
             self.rect.y += 1
-        print(ladder_collision(self))
         if ladder_collision(self):
             self.is_jump = False
             self.standing = True
@@ -879,8 +889,6 @@ hero, level_width, level_height, next_levels_pos, true_width, true_height = load
 the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
 can_attack = True
 jump_tick = 0
-asd = Frog(4, 4, BLOCK_SIZE, BLOCK_SIZE)
-all_enemies.append(asd)
 
 
 def init_images():
