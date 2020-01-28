@@ -2,6 +2,7 @@ import os
 import sys
 import pygame
 import random
+import copy
 
 pygame.init()
 size = 800, 500
@@ -18,6 +19,9 @@ FALLING_SPEED = 1
 FPS = 60
 CURRENT_MAP = 0
 gold = 0
+MAP_X, MAP_Y = 0, 0
+BG_SCROLL_X, BG_SCROLL_Y = -400, -250
+HERO_X, HERO_Y = 0, 0
 DIRECTIONS = {
     "left": 1,
     "up": 2,
@@ -34,9 +38,11 @@ hero_jump_sound = pygame.mixer.Sound(os.path.join("data\\sound_effects\\hero-jum
 boss_attack_sound = pygame.mixer.Sound(os.path.join("data\\sound_effects\\boss-attack.wav"))
 
 menu_music = os.path.join("data\\music\\menu-music.mp3")
-death_music = os.path.join("data\\music\\boss-music.mp3")
+death_music = os.path.join("data\\music\\death-music.mp3")
 adventure_music = os.path.join("data\\music\\usual-music.mp3")
 boss_music = os.path.join("data\\music\\boss-music.mp3")
+
+current_music = menu_music
 
 # pygame.mixer.music.load(menu_music) - загрузка
 
@@ -65,11 +71,68 @@ one block - 50x50
 IMAGES = dict()
 
 
+def get_stats():
+    global gold
+    filename = os.path.join("data", "stats.txt")
+    temp = open(filename, 'r')
+    file = [line.strip() for line in temp]
+    print(file)
+    hero.max_hp = int(file[0])
+    hero.attack_damage = float(file[1])
+    hero.block_amount = float(file[2])
+    hero.jump_max = int(file[3]) + 1
+    hero.jump_amount = hero.jump_max
+    gold = int(file[4])
+    hero.score = int(file[5])
+
+
+def set_stats():
+    filename = os.path.join("data", "stats.txt")
+    file = open(filename, 'w')
+    file.writelines([str(hero.max_hp) + '\n', str(hero.attack_damage) + '\n', f"{str(hero.block_amount)}\n",
+                     f"{str(hero.jump_amount)}\n", str(gold) + '\n',
+                     str(hero.score) + '\n'])
+
+
+def save_game():
+    global gold, MAP_X, MAP_Y
+    file = open("data\\last_save.txt", 'w')
+    lines = [f"map_{str(MAP_Y)}_{str(MAP_X)}.txt\n" if MAP_X != 0 else "map.txt\n", f"{hero.rect.x // BLOCK_SIZE}\n",
+             f"{hero.rect.y // BLOCK_SIZE}\n", f"{hero.hp}\n", f"{gold}\n", f"{hero.score}\n"]
+    file.writelines(lines)
+    set_stats()
+
+
+def load_save_game():
+    global hero, next_levels_pos, CURRENT_MAP, the_big_screen, true_width, true_height, level_width, level_height, gold
+    get_stats()
+    hero_x, hero_y = hero.vel_x, hero.vel_y
+    file = [line.strip() for line in open("data\\last_save.txt", "r")]
+    if CURRENT_MAP == "map_0_0.txt":
+        CURRENT_MAP = "map.txt"
+    CURRENT_MAP = file[0]
+    hero, level_width, level_height, next_levels_pos, true_width, true_height = load_and_generate_map(CURRENT_MAP,
+                                                                                                      player_flag_saved=True,
+                                                                                                      pl_x=int(file[1]),
+                                                                                                      pl_y=int(file[2]))
+    hero.hp = int(file[3])
+    gold = int(file[4])
+    hero.score = int(file[5])
+    hero.vel_x, hero.vel_y = hero_x, hero_y
+    the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE], pygame.SRCALPHA)
+
+
 def draw_main_screen():
     the_big_screen.fill(pygame.Color("black"))
     if hero.attack_type != 0:
         hero.def_attack()
         hero.attack.draw(the_big_screen)
+    cutout_x, cutout_y = camera_adjustment()
+    if CURRENT_MAP == 0 or CURRENT_MAP == "map.txt":
+        the_big_screen.blit(IMAGES["bg1"],
+                            (cutout_x + -hero.rect.x // BLOCK_SIZE - 50, cutout_y + -hero.rect.y // BLOCK_SIZE))
+    else:
+        the_big_screen.blit(IMAGES["bg2"], (cutout_x + BG_SCROLL_X, cutout_y + BG_SCROLL_Y))
     all_blocks.draw(the_big_screen)
     all_enemies_sprite.draw(the_big_screen)
     all_hero.draw(the_big_screen)
@@ -87,7 +150,7 @@ def draw_overlapping_screen():
     overlapping_screen.fill(pygame.SRCALPHA)
     overlapping_screen.blit(IMAGES["pause-icon"], (10, 10))
     overlapping_screen.blit(hero.draw_health(), (80, 26))
-    overlapping_screen.blit(gold_display(), (674, 10))
+    overlapping_screen.blit(gold_display(gold), (674, 10))
     overlapping_screen.blit(score_text, (674, 26))
     overlapping_screen.blit(tutorial_board, (624, 100))
 
@@ -121,17 +184,32 @@ def start_menu():
     def draw_main_surface():
         main_surface.fill(pygame.Color("black"))
         main_surface.blit(fon, (0, 0))
-        main_surface.blit(IMAGES["settings"], (725, 425))
-        main_surface.blit(IMAGES["leader_board"], (610, 410))
-        play_button.draw(main_surface, pygame.mouse.get_pos())
+        main_surface.blit(IMAGES["leader_board"], (670, 410))
+        start_button.draw(main_surface, pygame.mouse.get_pos())
+        if continue_button_flag:
+            continue_button.draw(main_surface, pygame.mouse.get_pos())
+
+    global current_music
+    current_music = menu_music
+    pygame.mixer.music.fadeout(5)
+    pygame.mixer.music.load(menu_music)
+    pygame.mixer.music.play(-1)
 
     main_surface = pygame.Surface([size[0], size[1]])
     tick = 0
     fon = pygame.transform.scale(load_image('fon.jpg'), (size[0], size[1]))
-    intro_text = create_text("Play", "data\\CenturyGothic-Bold.ttf", 30, pygame.Color(18, 196, 30), 5)
-    intro_text_cover = create_text("Play", "data\\CenturyGothic-Bold.ttf", 39, pygame.Color(18, 196, 30), 5)
-    play_button = Button(400 - intro_text.get_width() // 2, 380 - intro_text.get_height() // 2, intro_text,
-                         intro_text_cover)
+    intro_text = create_text("New game", "data\\CenturyGothic-Bold.ttf", 30, pygame.Color(18, 196, 30), 5)
+    intro_text_cover = create_text("New game", "data\\CenturyGothic-Bold.ttf", 39, pygame.Color(18, 196, 30), 5)
+    start_button = Button(400 - intro_text.get_width() // 2, 380 - intro_text.get_height() // 2, intro_text,
+                          intro_text_cover)
+    continue_button_flag = False
+    if open("data\\last_save.txt", "r").read() != "":
+        continue_text = create_text("Continue", "data\\CenturyGothic-Bold.ttf", 30, pygame.Color(18, 196, 30), 5)
+        continue_text_cover = create_text("Continue", "data\\CenturyGothic-Bold.ttf", 39, pygame.Color(18, 196, 30), 5)
+        continue_button = Button(400 - continue_text.get_width() // 2, 440 - continue_text.get_height() // 2,
+                                 continue_text,
+                                 continue_text_cover)
+        continue_button_flag = True
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -140,12 +218,16 @@ def start_menu():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     x, y = pygame.mouse.get_pos()
-                    if dist(757, 457, x, y) <= 32:  # launch settings screen
-                        return
-                    if pygame.Rect.collidepoint(pygame.Rect(610, 410, 100, 100), x, y):  # launch leader_boards screen
+                    if pygame.Rect.collidepoint(pygame.Rect(670, 410, 100, 100), x, y):  # launch leader_boards screen
                         leader_board()
-                    if play_button.is_cover((x, y)):
+                    if start_button.is_cover((x, y)):
+                        open("data\\stats.txt", "w").writelines(["100\n", "1\n", "0\n", "0\n", "0\n", "0\n"])
+                        open("data\\last_save.txt", "w").write("")
                         return
+                    if continue_button_flag:
+                        if continue_button.is_cover((x, y)):
+                            load_save_game()
+                            return
         main_surface.set_alpha((tick ** 2) / 300)
         draw_main_surface()
         screen.blit(main_surface, (0, 0))
@@ -154,7 +236,105 @@ def start_menu():
         tick += 1
 
 
+def restart_all_levels():
+    reset_level()
+    global hero, level_width, level_height, next_levels_pos, true_height, true_width, the_big_screen, can_attack, jump_tick, CURRENT_MAP, MAP_X, MAP_Y
+    MAP_X, MAP_Y, CURRENT_MAP = 0, 0, 0
+    hero, level_width, level_height, next_levels_pos, true_width, true_height = load_and_generate_map(
+        "map.txt")
+    get_stats()
+    the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
+    jump_tick = 0
+    hero.score = 0
+    can_attack = True
+
+
+def DIED():
+    global current_music
+    current_music = death_music
+    pygame.mixer.music.stop()
+    pygame.mixer.music.load(death_music)
+    pygame.mixer.music.play(-1)
+
+    text = create_text("Press f to continue", "data\\CenturyGothic-Italic.ttf", 19, pygame.Color("white"))
+    tick = 0
+    screen.fill((0, 0, 0))
+    screen.blit(IMAGES["you_died"], (-45, -45))
+    screen.blit(text, (400 - text.get_width() // 2, 350))
+    for i in range(400 - text.get_width() // 2, 405 + text.get_width() // 2):
+        for j in range(350, 355 + text.get_height()):
+            r, g, b, a = screen.get_at((i, j))
+            screen.set_at((i, j), pygame.Color(r // 2, g // 2, b // 2, a))
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit(0)
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_f:
+                    restart_all_levels()
+                    return
+        pygame.display.flip()
+        clock.tick(FPS)
+        tick += 1
+
+
+def boss_alert():
+    def draw_main_surface():
+        cutout_x, cutout_y = camera_adjustment()
+        all_blocks.draw(the_big_screen)
+        all_enemies_sprite.draw(the_big_screen)
+        all_hero.draw(the_big_screen)
+        all_projectiles_sprite.draw(the_big_screen)
+        all_npcs.draw(the_big_screen)
+        if CURRENT_MAP == 0 or CURRENT_MAP == "map.txt":
+            the_big_screen.blit(IMAGES["bg1"],
+                                (cutout_x + -hero.rect.x // BLOCK_SIZE - 50, cutout_y + -hero.rect.y // BLOCK_SIZE))
+        else:
+            the_big_screen.blit(IMAGES["bg2"], (cutout_x + BG_SCROLL_X, cutout_y + BG_SCROLL_Y))
+        cutout = pygame.Rect(cutout_x, cutout_y, size[0], size[1])
+        screen.blit(the_big_screen, (0, 0), cutout)
+        screen.blit(alert_text, (text_x, text_y))
+
+    tick = 0
+    alert_text = create_text("BOSS FIGHT", "data\\CenturyGothic-Bold.ttf", 37, pygame.Color("white"))
+    text_x, text_y = 400 - alert_text.get_width() // 2, 250 - alert_text.get_height() // 2
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit(0)
+        if tick >= 120:
+            return
+        draw_main_surface()
+        pygame.display.flip()
+        clock.tick(FPS)
+        tick += 1
+
+
+def win_screen():
+    text = create_text("Press f to continue", "data\\CenturyGothic-Italic.ttf", 19, pygame.Color("white"))
+    tick = 0
+    screen.fill((0, 0, 0))
+    screen.blit(IMAGES["win_screen"], (25, 20))
+    screen.blit(text, (400 - text.get_width() // 2, 350))
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit(0)
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_f:
+                    restart_all_levels()
+                    return
+        pygame.display.flip()
+        clock.tick(FPS)
+        tick += 1
+
+
 def pause():
+    global gold, MAP_X, MAP_Y
+
     def draw_main_surface():
         main_surface.fill(pygame.Color("blue"))
         cutout_x, cutout_y = camera_adjustment()
@@ -167,7 +347,8 @@ def pause():
         restart_button.draw(main_surface, (x, y))
         exit_button.draw(main_surface, (x, y))
         screen.blit(main_surface, (main_surface_dx, main_surface_dy))
-        draw_overlapping_screen()
+
+    pygame.mixer.music.pause()
 
     main_surface = pygame.Surface([400, 250]).convert_alpha()
     main_surface_dx = 200
@@ -195,15 +376,214 @@ def pause():
                 x -= main_surface_dx
                 y -= main_surface_dy
                 if continue_button.is_cover((x, y)):
+                    pygame.mixer.music.unpause()
+                    return
+                if restart_button.is_cover((x, y)):
+                    pygame.mixer.music.unpause()
+                    restart_all_levels()
+                    return
+                if exit_button.is_cover((x, y)):
+                    pygame.mixer.music.unpause()
+                    save_game()
+                    restart_all_levels()
+                    start_menu()
                     return
         draw_main_surface()
         pygame.display.flip()
         clock.tick(FPS)
 
 
+class Line(pygame.sprite.Sprite):
+    def __init__(self, x1, y1, x2, y2):
+        super().__init__()
+        self.rect = pygame.Rect(min(x1, x2), min(y1, y2), max(x1, x2) - min(x1, x2), max(y1, y2) - min(y1, y2))
+        self.image = pygame.Surface([self.rect.w, self.rect.h])
+        self.image.fill(pygame.Color("gray"))
+
+    def draw(self, surface):
+        surface.blit(self.image, (self.rect.x, self.rect.y))
+
+
+class Upgrade_cart(pygame.sprite.Sprite):
+
+    def __init__(self, x, y, on, image1, image2):  # pixels
+        super().__init__()
+        self.image_0 = pygame.Surface([60, 60], pygame.SRCALPHA, 32)
+        self.image_1 = image1
+        self.image_2 = image2
+        self.on = on
+        self.update_on()
+        self.rect = self.image.get_rect()
+        self.rect.x, self.rect.y = x, y
+        self.lines_list = []
+        self.carts_list = []
+
+    def connect_lines(self, lines_list):
+        self.lines_list = lines_list
+
+    def connect_cart(self, cart):
+        self.carts_list.append(cart)
+
+    def is_cover(self, pos):
+        return self.rect.collidepoint(pos)
+
+    def update_on(self):
+        if self.on == 0:
+            self.image = self.image_0
+        elif self.on == 1:
+            self.image = self.image_1
+        else:
+            self.image = self.image_2
+
+    def draw(self, surface):
+        surface.blit(self.image, (self.rect.x, self.rect.y))
+        if self.on == 2:
+            for line in self.lines_list:
+                line.draw(surface)
+            for cart in self.carts_list:
+                if cart.on == 0:
+                    cart.on = 1
+                    cart.update()
+
+
+def shop():
+    carts = []
+    current_cart_ind = 0
+    cart_info_copy = load_image("cart_info.png")
+
+    def draw_cart_info(click):
+        global gold
+        cart_info = copy.copy(cart_info_copy)
+        x, y = pygame.mouse.get_pos()
+        x -= 450
+        y -= 50
+        shift = 30
+        button_text = create_text("Buy", "data\\CenturyGothic-Bold.ttf", 30, pygame.Color(18, 196, 30), 5)
+        button_text_cover = create_text("Buy", "data\\CenturyGothic-Bold.ttf", 35, pygame.Color(18, 196, 30), 5)
+        buy_button = Button(150 - button_text.get_width() // 2, 350 - button_text.get_height() // 2 - shift,
+                            button_text,
+                            button_text_cover)
+        buy_button.draw(cart_info, (x, y))
+        if current_cart_ind == 0:
+            cart_info.blit(IMAGES["health"], (30, 30 + shift))
+            text1 = create_text("Больше здоровья", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text2 = create_text(f"Сейчас: {str(hero.max_hp)}hp", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text3 = create_text(f"Развитие: +10hp", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            cart_info.blit(text1, (100, 55 + shift))
+            cart_info.blit(text2, (20, 150 + shift))
+            cart_info.blit(text3, (20, 185 + shift))
+            if click and gold >= 10 and buy_button.is_cover((x, y)):
+                hero.max_hp += 10
+                hero.hp = hero.max_hp
+                gold -= 10
+                carts[current_cart_ind].on = max(2, carts[current_cart_ind].on + 1)
+            cart_info.blit(pygame.transform.scale(gold_display(10), (153, 24)), (33, 95 + shift))
+        if current_cart_ind == 1:
+            cart_info.blit(IMAGES["sword"], (30, 30 + shift))
+            text1 = create_text("Больше атаки", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text2 = create_text(f"Сейчас: {str(hero.attack_damage)}damage", "data\\CenturyGothic.ttf", 20,
+                                pygame.Color("white"))
+            text3 = create_text(f"Развитие: +0.5damage", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            cart_info.blit(text1, (100, 55 + shift))
+            cart_info.blit(text2, (20, 150 + shift))
+            cart_info.blit(text3, (20, 185 + shift))
+            if click and gold >= 20 and buy_button.is_cover((x, y)):
+                hero.attack_damage += 0.5
+                gold -= 20
+                carts[current_cart_ind].on = max(2, carts[current_cart_ind].on + 1)
+            cart_info.blit(pygame.transform.scale(gold_display(20), (153, 24)), (33, 95 + shift))
+        if current_cart_ind == 2:
+            cart_info.blit(IMAGES["shield"], (30, 30 + shift))
+            text1 = create_text("Больше защиты", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text2 = create_text(f"Сейчас: {str(hero.block_amount)}shield", "data\\CenturyGothic.ttf", 20,
+                                pygame.Color("white"))
+            text3 = create_text(f"Развитие: +0.1shield", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            cart_info.blit(text1, (100, 55 + shift))
+            cart_info.blit(text2, (20, 150 + shift))
+            cart_info.blit(text3, (20, 185 + shift))
+            if click and gold >= 25 and buy_button.is_cover((x, y)):
+                hero.block_amount += 0.1
+                gold -= 25
+                carts[current_cart_ind].on = max(2, carts[current_cart_ind].on + 1)
+            cart_info.blit(pygame.transform.scale(gold_display(25), (153, 24)), (33, 95 + shift))
+        if current_cart_ind == 3:
+            cart_info.blit(IMAGES["double_jump"], (30, 30 + shift))
+            text1 = create_text("Двойной прыжок", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            cart_info.blit(text1, (100, 55 + shift))
+            if click and gold >= 100 and buy_button.is_cover((x, y)) and hero.jump_max != 2:
+                hero.jump_max = 2
+                hero.jump_amount = hero.jump_max
+                gold -= 100
+                carts[current_cart_ind].on = max(2, carts[current_cart_ind].on + 1)
+            cart_info.blit(pygame.transform.scale(gold_display(100), (153, 24)), (33, 95 + shift))
+        return cart_info
+
+    def draw_main_surface(cart_info):
+        x, y = pygame.mouse.get_pos()
+        screen.blit(fon, (-x // 30 - 15, -y // 30 - 150))
+        for cart in carts:
+            cart.update_on()
+            cart.draw(upgrade_tree)
+        screen.blit(upgrade_tree, (0, 0))
+        screen.blit(cart_info, (450, 50))
+        screen.blit(gold_display(gold), (100, 50))
+        screen.blit(IMAGES["back_arrow"], (20, 20))
+
+    fon = load_image("shop_bg.png")
+    upgrade_tree = pygame.Surface([500, 500], pygame.SRCALPHA)
+    # +health(0)
+    cart = Upgrade_cart(220, 400, 1, IMAGES["health_half"], IMAGES["health"])
+    cart.connect_lines([Line(245, 360, 255, 400), Line(175, 350, 325, 360),
+                        Line(175, 310, 185, 350), Line(315, 320, 325, 350)])
+    carts.append(cart)
+    # +damage(1)
+    cart = Upgrade_cart(150, 260, 0, IMAGES["sword_half"], IMAGES["sword"])
+    cart.connect_lines([Line(175, 220, 185, 260)])
+    carts[0].connect_cart(cart)
+    carts.append(cart)
+    # +block(2)
+    cart = Upgrade_cart(290, 260, 0, IMAGES["shield_half"], IMAGES["shield"])
+    carts[0].connect_cart(cart)
+    carts.append(cart)
+    # +double_jump(3)
+    cart = Upgrade_cart(150, 160, 0, IMAGES["double_jump_half"], IMAGES["double_jump"])
+    carts[1].connect_cart(cart)
+    carts.append(cart)
+    if hero.max_hp > 100:
+        carts[0].on = 2
+    if hero.attack_damage > 1:
+        carts[1].on = 2
+    if hero.block_amount > 0.2:
+        carts[2].on = 2
+    if hero.jump_amount > 1:
+        carts[3].on = 2
+    while True:
+        click_flag = False
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit(0)
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                x, y = pygame.mouse.get_pos()
+                if event.button == 1:
+                    click_flag = True
+                    for i in range(len(carts)):
+                        if carts[i].on != 0 and carts[i].is_cover(pygame.mouse.get_pos()):
+                            current_cart_ind = i
+                    if dist(x, y, 52, 52) <= 32:
+                        return
+            draw_main_surface(draw_cart_info(click_flag))
+            pygame.display.flip()
+            clock.tick(FPS)
+
+
 def leader_board():
     scroll_y = 0
     tick = 0
+    fon = load_image("shop_bg.png")
     screen.fill(pygame.Color("black"))
     filename = os.path.join("data", "leader_board.txt")
     with open(filename, 'r') as mapFile:
@@ -221,7 +601,7 @@ def leader_board():
         map(lambda x: max(x[0].get_height(), x[1].get_height()), all_text))
     tile_width += 30
     tile_height += 30
-    main_surface = pygame.Surface([tile_width * 2 + 10, tile_height * len(leaders) + 10])
+    main_surface = pygame.Surface([tile_width * 2 + 10, tile_height * len(leaders) + 10], pygame.SRCALPHA)
     x = 6
     y = 6
     for i in range(len(leaders)):
@@ -246,10 +626,12 @@ def leader_board():
                 if event.button == 1 and dist(x, y, 52, 52) <= 32:
                     return
         screen.fill(pygame.Color("black"))
+        screen.blit(fon, (-x // 30, -y // 30 - 150))
         main_surface.set_alpha((tick ** 2))
         IMAGES["back_arrow"].set_alpha((tick ** 2) / 300)
         screen.blit(main_surface, (400 - tile_width, 55 - scroll_y))
         screen.blit(IMAGES["back_arrow"], (20, 20))
+        x, y = pygame.mouse.get_pos()
         pygame.display.flip()
         clock.tick(FPS)
         tick += 1
@@ -279,10 +661,12 @@ def ladder_collision(item):
     return 1 if pygame.sprite.spritecollideany(item, all_ladders, pygame.sprite.collide_mask) else 0
 
 
-def load_and_generate_map(filename, new_pos=None):
+def load_and_generate_map(filename, new_pos=None, player_flag_saved=False, pl_x=0, pl_y=0):
+    global MAP_X, MAP_Y
     map_x, map_y = 0, 0
     if filename != "map.txt":
         map_x, map_y = int(filename.split('_')[1]), int(filename.split('_')[2].strip('.txt'))
+    MAP_X, MAP_Y = map_x, map_y
     if map_x == 3 and map_y == 3:
         filename = os.path.join("data", "maps", "boss_room.txt")
     else:
@@ -305,17 +689,15 @@ def load_and_generate_map(filename, new_pos=None):
         for x in range(len(level[y])):
             if level[y][x] == '#':
                 Block(x, y)
-            if level[y][x] == '@' and new_pos is None and not player_flag:
+            if level[y][x] == '@' and new_pos is None and not player_flag and not player_flag_saved:
                 player_x, player_y = x, y
                 player_flag = 1
             if level[y][x] == '_':
                 Platform(x, y)
             if level[y][x] == '*':
                 Prujinka(x, y)
-            if level[y][x] == '/':
-                Ladder(x, y, angle=45)
-            if level[y][x] == '\\':
-                Ladder(x - 1, y, angle=-45)
+            if level[y][x] == 'v' and level[y + 1][x] != 'v':
+                Trader(x, y - 1)
             if level[y][x] == '-':
                 if y == 0 or y == len(level) - 1:
                     if x > 0 and level[y][x - 1] != '-':
@@ -348,19 +730,22 @@ def load_and_generate_map(filename, new_pos=None):
                             next_levels_pos[DIRECTIONS["left"]] = (x, y)
                         else:
                             next_levels_pos[DIRECTIONS["right"]] = (x, y)
-    number_of_enemies = random.randint(max(1, map_x + map_y - 1), max(1, (map_x + map_y - 1)) * 2)
-    enemies_pos = set()
-    for y in range(len(level)):
-        for x in range(len(level[y])):
-            if y > 0 and (level[y][x] == ' ' or level[y][x] == '.'):
-                enemies_pos.add((x, y))
-    for i in enemies_pos:
-        if number_of_enemies == 0:
-            break
-        x, y = i
-        all_enemies.append(random.choice(enemy_types)(x, y, BLOCK_SIZE, BLOCK_SIZE))
-        number_of_enemies -= 1
-    if player_x == 0 and player_y == 0:
+
+    print(filename, next_levels_pos)
+    if filename != "data\\maps\\map.txt" and filename != "data\\maps\\boss_room.txt":
+        number_of_enemies = random.randint(max(1, map_x + map_y - 1), max(1, (map_x + map_y - 1)) * 2)
+        enemies_pos = set()
+        for y in range(len(level)):
+            for x in range(len(level[y])):
+                if y > 0 and (level[y][x] == ' ' or level[y][x] == '.'):
+                    enemies_pos.add((x, y))
+        for i in enemies_pos:
+            if number_of_enemies == 0:
+                break
+            x, y = i
+            all_enemies.append(random.choice(enemy_types)(x, y, BLOCK_SIZE, BLOCK_SIZE))
+            number_of_enemies -= 1
+    if player_x == 0 and player_y == 0 and not (new_pos is None):
         player_x, player_y = next_levels_pos[new_pos]
         if new_pos == DIRECTIONS["left"]:
             player_x += 1
@@ -370,7 +755,15 @@ def load_and_generate_map(filename, new_pos=None):
             player_y += 2
         if new_pos == DIRECTIONS["down"]:
             player_y -= 2
-    hero = Player(player_x, player_y)
+    if player_flag_saved:
+        hero = Player(pl_x, pl_y)
+    else:
+        hero = Player(player_x, player_y)
+    if filename == "data\\maps\\boss_room.txt":
+        Block(0, 15)
+        Block(0, 16)
+        Block(5, 17)
+        Block(6, 17)
     return hero, max_width, max_height, next_levels_pos, true_width, true_height
 
 
@@ -425,8 +818,7 @@ class Invisible_Rect(pygame.sprite.Sprite):
 
 
 class Block(pygame.sprite.Sprite):
-    image = pygame.Surface([BLOCK_SIZE, BLOCK_SIZE])
-    image.fill(pygame.Color("white"))
+    image = load_image("block.png")
 
     def __init__(self, x, y):  # coordinates not in pixels
         super().__init__(all_blocks)
@@ -444,8 +836,7 @@ class Block(pygame.sprite.Sprite):
 
 
 class Platform(pygame.sprite.Sprite):
-    image = pygame.Surface([BLOCK_SIZE, BLOCK_SIZE // 5])
-    image.fill(pygame.Color("gray"))
+    image = load_image("platform.png")
 
     def __init__(self, x, y):
         super().__init__(all_blocks)
@@ -485,8 +876,7 @@ class Prujinka(pygame.sprite.Sprite):
 
 
 class Next_level_vertical_border(pygame.sprite.Sprite):
-    image = pygame.Surface([int(BLOCK_SIZE * 0.6), BLOCK_SIZE * 2])
-    image.fill(pygame.Color("yellow"))
+    image = pygame.Surface([int(BLOCK_SIZE * 0.6), BLOCK_SIZE * 2], pygame.SRCALPHA)
 
     def __init__(self, x, y):  # coordinates not in pixels
         super().__init__(all_blocks, next_level_vertical_border_group)
@@ -507,8 +897,7 @@ class Next_level_vertical_border(pygame.sprite.Sprite):
 
 
 class Next_level_horizontal_border(pygame.sprite.Sprite):
-    image = pygame.Surface([BLOCK_SIZE * 2, int(BLOCK_SIZE * 0.6)])
-    image.fill(pygame.Color("yellow"))
+    image = pygame.Surface([BLOCK_SIZE * 2, int(BLOCK_SIZE * 0.6)], pygame.SRCALPHA)
 
     def __init__(self, x, y):
         super().__init__(all_blocks, next_level_horizontal_border_group)
@@ -528,31 +917,13 @@ class Next_level_horizontal_border(pygame.sprite.Sprite):
         self.rect.x, self.rect.y = x, y
 
 
-class Ladder(pygame.sprite.Sprite):
-    side_len = round(BLOCK_SIZE * (2 ** .5))
-    image = pygame.Surface([side_len, side_len], pygame.SRCALPHA)
-    image.fill(pygame.Color("purple"))
-
-    def __init__(self, x, y, angle):
-        super().__init__(all_blocks, all_ladders)
-        x *= BLOCK_SIZE
-        y *= BLOCK_SIZE
-        self.pos = (x, y)
-        self.image = Ladder.image.convert_alpha()
-        self.image = pygame.transform.rotozoom(self.image, angle, 1)
-        self.rect = self.image.get_rect(center=(x + BLOCK_SIZE + 1, y + BLOCK_SIZE))
-        self.rect = self.image.get_rect(center=self.rect.center)
-        self.rect.x, self.rect.y = x, y
-        self.mask = pygame.mask.from_surface(self.image)
-
-def gold_display():
+def gold_display(gold):
     coin_image = load_image(os.path.join("entity_images\\Coin.png")).convert_alpha()
     gold_text = create_text(str(gold), os.path.join("data\\CenturyGothic-Bold.ttf"), 16, pygame.Color("white"))
     gold_surface = pygame.Surface([102, 16], pygame.SRCALPHA)
     gold_surface.blit(coin_image, (0, 0))
     gold_surface.blit(gold_text, (22, -3))
     return gold_surface
-
 
 
 # ---------------------------------------------ENTITY------------------------------------------------------------------
@@ -608,77 +979,77 @@ class OmniTurret(pygame.sprite.Sprite):
     def shoot(self):
         projectile_list = []
         projl1 = (self.rect.x - 24, self.rect.y + round(self.rect.h / 3), 24, 24, OmniTurret.image_projectile,
-                           self.shot_speed, self.shot_damage, ["left"])
+                  self.shot_speed, self.shot_damage, ["left"])
         projectile_list.append(projl1)
 
         projl2 = (self.rect.x - 24, self.rect.y + round(self.rect.h / 3) + 74, 24, 24, OmniTurret.image_projectile,
-                            self.shot_speed, self.shot_damage, ["left"])
+                  self.shot_speed, self.shot_damage, ["left"])
         projectile_list.append(projl2)
 
         projr1 = (self.rect.x + self.rect.w, self.rect.y + round(self.rect.h / 3), 24, 24, OmniTurret.image_projectile,
-                            self.shot_speed, self.shot_damage, ["right"])
+                  self.shot_speed, self.shot_damage, ["right"])
         projectile_list.append(projr1)
 
         projr2 = (self.rect.x + self.rect.w, self.rect.y + round(self.rect.h / 3) + 74, 24, 24,
-                            OmniTurret.image_projectile,
-                            self.shot_speed, self.shot_damage, ["right"])
+                  OmniTurret.image_projectile,
+                  self.shot_speed, self.shot_damage, ["right"])
         projectile_list.append(projr2)
 
         proju1 = (self.rect.x + round(self.rect.w / 3), self.rect.y - 24, 24, 24,
-                            OmniTurret.image_projectile,
-                            self.shot_speed, self.shot_damage, ["up"])
+                  OmniTurret.image_projectile,
+                  self.shot_speed, self.shot_damage, ["up"])
         projectile_list.append(proju1)
 
         proju2 = (self.rect.x + round(self.rect.w / 3) + 74, self.rect.y - 24, 24, 24,
-                            OmniTurret.image_projectile,
-                            self.shot_speed, self.shot_damage, ["up"])
+                  OmniTurret.image_projectile,
+                  self.shot_speed, self.shot_damage, ["up"])
         projectile_list.append(proju2)
 
         projd1 = (self.rect.x + round(self.rect.w / 3), self.rect.y + self.rect.h, 24, 24,
-                            OmniTurret.image_projectile,
-                            self.shot_speed, self.shot_damage, ["down"])
+                  OmniTurret.image_projectile,
+                  self.shot_speed, self.shot_damage, ["down"])
         projectile_list.append(projd1)
 
         projd2 = (self.rect.x + round(self.rect.w / 3) + 74, self.rect.y + self.rect.h, 24, 24,
-                            OmniTurret.image_projectile,
-                            self.shot_speed, self.shot_damage, ["down"])
+                  OmniTurret.image_projectile,
+                  self.shot_speed, self.shot_damage, ["down"])
         projectile_list.append(projd2)
 
         proj_leftup1 = (self.rect.x + 20, self.rect.y - 20, 24, 24,
-                            OmniTurret.image_projectile,
-                            self.shot_speed, self.shot_damage, ["left", "up"])
+                        OmniTurret.image_projectile,
+                        self.shot_speed, self.shot_damage, ["left", "up"])
         projectile_list.append(proj_leftup1)
 
         proj_leftup2 = (self.rect.x - 30, self.rect.y + 30, 24, 24,
-                            OmniTurret.image_projectile,
-                            self.shot_speed, self.shot_damage, ["left", "up"])
+                        OmniTurret.image_projectile,
+                        self.shot_speed, self.shot_damage, ["left", "up"])
         projectile_list.append(proj_leftup2)
 
         proj_leftdown1 = (self.rect.x + 20 + 15, self.rect.y - 20 + 320, 24, 24,
-                                  OmniTurret.image_projectile,
-                                  self.shot_speed, self.shot_damage, ["left", "down"])
+                          OmniTurret.image_projectile,
+                          self.shot_speed, self.shot_damage, ["left", "down"])
         projectile_list.append(proj_leftdown1)
         proj_leftdown2 = (self.rect.x - 30 + 15, self.rect.y + 220 + 30, 24, 24,
-                                  OmniTurret.image_projectile,
-                                  self.shot_speed, self.shot_damage, ["left", "down"])
+                          OmniTurret.image_projectile,
+                          self.shot_speed, self.shot_damage, ["left", "down"])
         projectile_list.append(proj_leftdown2)
 
         proj_rightup1 = (self.rect.x + 20 + 260, self.rect.y + 30, 24, 24,
-                                  OmniTurret.image_projectile,
-                                  self.shot_speed, self.shot_damage, ["right", "up"])
+                         OmniTurret.image_projectile,
+                         self.shot_speed, self.shot_damage, ["right", "up"])
         projectile_list.append(proj_rightup1)
         proj_rightup2 = (self.rect.x - 30 + 280, self.rect.y - 10, 24, 24,
-                                  OmniTurret.image_projectile,
-                                  self.shot_speed, self.shot_damage, ["right", "up"])
+                         OmniTurret.image_projectile,
+                         self.shot_speed, self.shot_damage, ["right", "up"])
         projectile_list.append(proj_rightup2)
 
         proj_rightdown1 = (self.rect.x + 20 + 260, self.rect.y + 30 + 220, 24, 24,
-                                   OmniTurret.image_projectile,
-                                   self.shot_speed, self.shot_damage, ["right", "down"])
+                           OmniTurret.image_projectile,
+                           self.shot_speed, self.shot_damage, ["right", "down"])
         projectile_list.append(proj_rightdown1)
         proj_rightdown2 = (self.rect.x - 30 + 280, self.rect.y - 10 + 300, 24, 24,
-                                   OmniTurret.image_projectile,
-                                   self.shot_speed, self.shot_damage, ["right", "down"])
+                           OmniTurret.image_projectile,
+                           self.shot_speed, self.shot_damage, ["right", "down"])
         projectile_list.append(proj_rightdown2)
 
         for i in range(8):
@@ -712,15 +1083,15 @@ class OmniTurret(pygame.sprite.Sprite):
         health_surface = pygame.Surface([round(2 * self.max_hp) + 140, 32], pygame.SRCALPHA)
         if self.hp > 0:
             pygame.draw.rect(health_surface, pygame.Color("red"),
-                            (140, 0, round(round(2 * self.max_hp) / self.max_hp * self.hp),
-                            health_surface.get_height()))
+                             (140, 0, round(round(2 * self.max_hp) / self.max_hp * self.hp),
+                              health_surface.get_height()))
         pygame.draw.rect(health_surface, pygame.Color("green"),
                          (140, 0, round(round(2 * self.max_hp)),
                           health_surface.get_height()), 1)
         hp_text = create_text("{}/{}".format(self.hp, self.max_hp), "data\\CenturyGothic-Bold.ttf", 20,
-                            pygame.Color("white"))
+                              pygame.Color("white"))
         boss_text = create_text("OMNI-TURRET:", "data\\CenturyGothic-Bold.ttf", 20,
-                            pygame.Color("white"))
+                                pygame.Color("white"))
         health_surface.blit(boss_text, (0, 0))
         health_surface.blit(hp_text, (146, 2))
         return health_surface
@@ -745,13 +1116,10 @@ class Trader(pygame.sprite.Sprite):
 
         self.rect = pygame.Rect(x, y, 155, 300)
         self.image = pygame.Surface([155, 300], pygame.SRCALPHA)
-        self.image.blit(Trader.image_idle , (0, 0))
+        self.image.blit(Trader.image_idle, (0, 0))
 
     def update(self):
-        if pygame.sprite.spritecollideany(self, all_hero):
-            if hero.talk:
-                pass
-                "МЕНЮШКА ТУТ"
+        pass
 
 
 class Gopnik(pygame.sprite.Sprite):
@@ -765,7 +1133,7 @@ class Gopnik(pygame.sprite.Sprite):
 
         self.rect = pygame.Rect(x, y, 48, 48)
         self.image = pygame.Surface([48, 48], pygame.SRCALPHA)
-        self.image.blit(pygame.transform.flip(Gopnik.image_idle, 1, 0) , (0, 0))
+        self.image.blit(pygame.transform.flip(Gopnik.image_idle, 1, 0), (0, 0))
 
     def update(self):
         global gold
@@ -813,7 +1181,9 @@ class Projectile(pygame.sprite.Sprite):
             self.rect.y -= self.vel_x
         if self.down:
             self.rect.y += self.vel_x
-        if vertical_collision(self) or horizontal_up_collision(self) or horizontal_down_collision(self) or platform_collision(self) or pygame.sprite.spritecollideany(self, next_level_vertical_border_group):
+        if vertical_collision(self) or horizontal_up_collision(self) or horizontal_down_collision(
+                self) or platform_collision(self) or pygame.sprite.spritecollideany(self,
+                                                                                    next_level_vertical_border_group):
             all_projectiles.remove(self)
             all_projectiles_sprite.remove(self)
             self.kill()
@@ -845,19 +1215,21 @@ class QuadraTurret(pygame.sprite.Sprite):
         self.hp = 2
 
     def shoot(self):
-        projl = Projectile(self.rect.x - 16, self.rect.y + round(self.rect.h / 3), 16, 16, Turret.image_projectile, self.shot_speed, self.shot_damage, ["left"])
+        projl = Projectile(self.rect.x - 16, self.rect.y + round(self.rect.h / 3), 16, 16, Turret.image_projectile,
+                           self.shot_speed, self.shot_damage, ["left"])
         all_projectiles_sprite.add(projl)
         all_projectiles.append(projl)
-        projr = Projectile(self.rect.x + self.rect.w + 16, self.rect.y + round(self.rect.h / 3), 16, 16, pygame.transform.flip(Turret.image_projectile, 1, 0),
-                          self.shot_speed, self.shot_damage, ["right"])
+        projr = Projectile(self.rect.x + self.rect.w + 16, self.rect.y + round(self.rect.h / 3), 16, 16,
+                           pygame.transform.flip(Turret.image_projectile, 1, 0),
+                           self.shot_speed, self.shot_damage, ["right"])
         all_projectiles_sprite.add(projr)
         all_projectiles.append(projr)
         projd = Projectile(self.rect.x + 16, self.rect.y + self.rect.h, 16, 16, Turret.image_projectile,
-                          self.shot_speed, self.shot_damage, ["down"])
+                           self.shot_speed, self.shot_damage, ["down"])
         all_projectiles_sprite.add(projd)
         all_projectiles.append(projd)
         proju = Projectile(self.rect.x + 16, self.rect.y, 16, 16, Turret.image_projectile,
-                          self.shot_speed, self.shot_damage, ["up"])
+                           self.shot_speed, self.shot_damage, ["up"])
         all_projectiles_sprite.add(proju)
         all_projectiles.append(proju)
 
@@ -957,7 +1329,6 @@ class Turret(pygame.sprite.Sprite):
             self.image.blit(Turret.image_idle, (0, 1))
         if self.i_frames > 0:
             self.i_frames -= 1
-
 
         self.ground_border = Invisible_Rect(self.rect.x, self.rect.y + self.rect.h - 9, self.rect.x + self.rect.w,
                                             self.rect.y + self.rect.h + 1)
@@ -1122,11 +1493,13 @@ class JumpTurret(pygame.sprite.Sprite):
         if self.knocked_back:
             if self.left:
                 self.rect.x += 5
-                while vertical_collision(self) or pygame.sprite.spritecollideany(self, next_level_vertical_border_group):
+                while vertical_collision(self) or pygame.sprite.spritecollideany(self,
+                                                                                 next_level_vertical_border_group):
                     self.rect.x -= 1
             else:
                 self.rect.x -= 5
-                while vertical_collision(self) or pygame.sprite.spritecollideany(self, next_level_vertical_border_group):
+                while vertical_collision(self) or pygame.sprite.spritecollideany(self,
+                                                                                 next_level_vertical_border_group):
                     self.rect.x += 1
         if self.jump_cooldown == 0 and not self.knocked_back:
             self.logic()
@@ -1303,11 +1676,13 @@ class JumpBot(pygame.sprite.Sprite):
         if self.knocked_back:
             if self.left:
                 self.rect.x += 5
-                while vertical_collision(self) or pygame.sprite.spritecollideany(self, next_level_vertical_border_group):
+                while vertical_collision(self) or pygame.sprite.spritecollideany(self,
+                                                                                 next_level_vertical_border_group):
                     self.rect.x -= 1
             else:
                 self.rect.x -= 5
-                while vertical_collision(self) or pygame.sprite.spritecollideany(self, next_level_vertical_border_group):
+                while vertical_collision(self) or pygame.sprite.spritecollideany(self,
+                                                                                 next_level_vertical_border_group):
                     self.rect.x += 1
         if self.jump_cooldown == 0 and not self.knocked_back:
             self.logic()
@@ -1422,6 +1797,8 @@ class Player(pygame.sprite.Sprite):
     image_sword_damage = load_image(os.path.join("entity_images\\Hero\\sword-damage.png")).convert_alpha()
     image_sword_move = load_image(os.path.join("entity_images\\Hero\\sword-move.png")).convert_alpha()
     image_sword_preattack = load_image(os.path.join("entity_images\\Hero\\sword-preattack.png")).convert_alpha()
+    image_sword_down_attack = load_image(os.path.join("entity_images\\Hero\\sword-down-attack.png")).convert_alpha()
+    image_sword_down_preattack = load_image(os.path.join("entity_images\\Hero\\sword-down-preattack.png")).convert_alpha()
 
     def __init__(self, x, y):  # coordinates not in pixels
         super().__init__(all_hero)
@@ -1460,14 +1837,14 @@ class Player(pygame.sprite.Sprite):
         self.knocked_back = False
         self.attack_image = pygame.sprite.Sprite()
         self.attack_image.image = pygame.Surface([1.5 * BLOCK_SIZE - 2, 2.5 * BLOCK_SIZE - 3], pygame.SRCALPHA)
-        self.attack_image.rect = pygame.Rect(self.rect.x + 1 + BLOCK_SIZE // 2, self.rect.y - BLOCK_SIZE // 2, 1.5 * BLOCK_SIZE - 2,
-                                                 2.5 * BLOCK_SIZE - 3)
+        self.attack_image.rect = pygame.Rect(self.rect.x + 1 + BLOCK_SIZE // 2, self.rect.y - BLOCK_SIZE // 2,
+                                             1.5 * BLOCK_SIZE - 2,
+                                             2.5 * BLOCK_SIZE - 3)
 
         self.max_hp = 100
         self.hp = 100
         self.block_amount = 0.2
         self.damage_resistance = 1
-        self.talk = False
 
     def animate(self):
         self.image.fill(pygame.SRCALPHA)
@@ -1533,31 +1910,58 @@ class Player(pygame.sprite.Sprite):
                                                      2.5 * BLOCK_SIZE - 3)
         else:
             if self.is_preattacking:
-                if self.right:
-                    self.attack_image.image.fill(pygame.SRCALPHA)
-                    self.attack_image.image.blit(pygame.transform.flip(Player.image_sword_preattack, 1, 0), (-15, 1))
-                    self.attack_image.rect = pygame.Rect(self.rect.x + BLOCK_SIZE // 2, self.rect.y - BLOCK_SIZE // 2,
-                                                         1.5 * BLOCK_SIZE - 2, 2.5 * BLOCK_SIZE - 3)
+                if self.attack_type == 1:
+                    if self.right:
+                        self.attack_image.image.fill(pygame.SRCALPHA)
+                        self.attack_image.image.blit(pygame.transform.flip(Player.image_sword_preattack, 1, 0), (-15, 1))
+                        self.attack_image.rect = pygame.Rect(self.rect.x + BLOCK_SIZE // 2, self.rect.y - BLOCK_SIZE // 2,
+                                                             1.5 * BLOCK_SIZE - 2, 2.5 * BLOCK_SIZE - 3)
+                    else:
+                        self.attack_image.image.fill(pygame.SRCALPHA)
+                        self.attack_image.image.blit(Player.image_sword_preattack, (15, 1))
+                        self.attack_image.rect = pygame.Rect(self.rect.x + 1 - BLOCK_SIZE, self.rect.y - BLOCK_SIZE // 2,
+                                                             1.2 * BLOCK_SIZE - 4,
+                                                             2.5 * BLOCK_SIZE - 3)
                 else:
-                    self.attack_image.image.fill(pygame.SRCALPHA)
-                    self.attack_image.image.blit(Player.image_sword_preattack, (15, 1))
-                    self.attack_image.rect = pygame.Rect(self.rect.x + 1 - BLOCK_SIZE, self.rect.y - BLOCK_SIZE // 2,
-                                                         1.2 * BLOCK_SIZE - 4,
-                                                         2.5 * BLOCK_SIZE - 3)
+                    if self.right:
+                        self.attack_image.image.fill(pygame.SRCALPHA)
+                        self.attack_image.image.blit(pygame.transform.flip(Player.image_sword_down_preattack, 1, 0), (0, 0))
+                        self.attack_image.rect = pygame.Rect(self.rect.x + BLOCK_SIZE // 2 - 14,
+                                                             self.rect.y + 29,
+                                                             round(BLOCK_SIZE // 2) - 1, BLOCK_SIZE - 2 + 67)
+                    else:
+                        self.attack_image.image.fill(pygame.SRCALPHA)
+                        self.attack_image.image.blit(Player.image_sword_down_preattack, (0, 0))
+                        self.attack_image.rect = pygame.Rect(self.rect.x + BLOCK_SIZE // 2 - 14,
+                                                             self.rect.y + 29,
+                                                             round(BLOCK_SIZE // 2) - 1, BLOCK_SIZE - 2 + 67)
 
             if self.is_attacking:
-                if self.right:
-                    self.attack_image.image.fill(pygame.SRCALPHA)
-                    self.attack_image.image.blit(pygame.transform.flip(Player.image_sword_attack, 1, 0), (-15, 1))
-                    self.attack_image.rect = pygame.Rect(self.rect.x + BLOCK_SIZE // 2, self.rect.y - BLOCK_SIZE // 2,
-                                                         1.2 * BLOCK_SIZE - 4, 2.5 * BLOCK_SIZE - 3)
+                if self.attack_type == 1:
+                    if self.right:
+                        self.attack_image.image.fill(pygame.SRCALPHA)
+                        self.attack_image.image.blit(pygame.transform.flip(Player.image_sword_attack, 1, 0), (-15, 1))
+                        self.attack_image.rect = pygame.Rect(self.rect.x + BLOCK_SIZE // 2, self.rect.y - BLOCK_SIZE // 2,
+                                                             1.2 * BLOCK_SIZE - 4, 2.5 * BLOCK_SIZE - 3)
+                    else:
+                        self.attack_image.image.fill(pygame.SRCALPHA)
+                        self.attack_image.image.blit(Player.image_sword_attack, (15, 1))
+                        self.attack_image.rect = pygame.Rect(self.rect.x + 1 - BLOCK_SIZE, self.rect.y - BLOCK_SIZE // 2,
+                                                             1.2 * BLOCK_SIZE - 4,
+                                                             2.5 * BLOCK_SIZE - 3)
                 else:
-                    self.attack_image.image.fill(pygame.SRCALPHA)
-                    self.attack_image.image.blit(Player.image_sword_attack, (15, 1))
-                    self.attack_image.rect = pygame.Rect(self.rect.x + 1 - BLOCK_SIZE, self.rect.y - BLOCK_SIZE // 2,
-                                                         1.2 * BLOCK_SIZE - 4,
-                                                         2.5 * BLOCK_SIZE - 3)
-
+                    if self.right:
+                        self.attack_image.image.fill(pygame.SRCALPHA)
+                        self.attack_image.image.blit(pygame.transform.flip(Player.image_sword_down_attack, 1, 0), (0, 0))
+                        self.attack_image.rect = pygame.Rect(self.rect.x + BLOCK_SIZE // 2 - 14,
+                                                         self.rect.y + 29,
+                                                         round(BLOCK_SIZE // 2) - 1, BLOCK_SIZE - 2 + 67)
+                    else:
+                        self.attack_image.image.fill(pygame.SRCALPHA)
+                        self.attack_image.image.blit(Player.image_sword_down_attack, (15, 1))
+                        self.attack_image.rect = pygame.Rect(self.rect.x + BLOCK_SIZE // 2 - 14,
+                                                             self.rect.y + 29,
+                                                             round(BLOCK_SIZE // 2) - 1, BLOCK_SIZE - 2 + 67)
 
     def update(self):
         if not self.moving:
@@ -1571,6 +1975,20 @@ class Player(pygame.sprite.Sprite):
         global jump_tick
         self.ground_border = Invisible_Rect(self.rect.x, self.rect.y + self.rect.h - 9, self.rect.x + self.rect.w,
                                             self.rect.y + self.rect.h + 1)
+
+        if self.knocked_back:
+            if self.right:
+                self.rect.x -= 5
+                while vertical_collision(hero):
+                    hero.rect.x += 1
+                    self.knocked_back = False
+            else:
+                self.rect.x += 5
+                while vertical_collision(hero):
+                    hero.rect.x -= 1
+                    self.knocked_back = False
+        elif self.i_frames > 0 and self.knocked_back is False:
+            self.i_frames -= 1
 
         if horizontal_down_collision(self):
             jump_tick = 0
@@ -1664,13 +2082,8 @@ class Player(pygame.sprite.Sprite):
             self.attack.add(self.attack_image)
 
         elif self.attack_type == 2:
-            attack_sprite = pygame.sprite.Sprite()
-            attack_sprite.image = pygame.Surface([round(BLOCK_SIZE // 2) - 1, BLOCK_SIZE - 2], pygame.SRCALPHA)
-            pygame.draw.rect(attack_sprite.image, (0, 0, 255), (0, 0, round(BLOCK_SIZE // 2) - 1, BLOCK_SIZE - 2))
-            attack_sprite.rect = pygame.Rect(self.rect.x + self.rect.w // 4 + 1, self.rect.y + self.rect.h - 2,
-                                             round(BLOCK_SIZE // 2) - 1, BLOCK_SIZE - 2)
             self.attack.empty()
-            self.attack.add(attack_sprite)
+            self.attack.add(self.attack_image)
 
     def draw_health(self):
         health_surface = pygame.Surface([round(1.5 * self.max_hp), 32], pygame.SRCALPHA)
@@ -1678,7 +2091,8 @@ class Player(pygame.sprite.Sprite):
                          (0, 0, health_surface.get_width(), health_surface.get_height()))
         if self.hp > 0:
             pygame.draw.rect(health_surface, pygame.Color("green"),
-                             (0, 0, round(health_surface.get_width() / self.max_hp * self.hp), health_surface.get_height()))
+                             (0, 0, round(health_surface.get_width() / self.max_hp * self.hp),
+                              health_surface.get_height()))
         hp_text = create_text("{}/{}".format(self.hp, self.max_hp), "data\\CenturyGothic-Bold.ttf", 20,
                               pygame.Color("white"))
         health_surface.blit(hp_text, (6, 2))
@@ -1719,7 +2133,15 @@ class Player(pygame.sprite.Sprite):
 
     def death(self):
         hero_death_sound.play()
-        print("you are DED")
+        set_stats()
+        print(hero.score)
+        filename = "data\\leader_board.txt"
+        file = [line for line in open(filename, 'r')]
+        file.append(f"Player-{str(hero.score)}\n")
+        file1 = open(filename, 'w')
+        file1.writelines(file)
+        DIED()
+        hero.score = 0
 
 
 # ---------------------------------------CODE--------------------------------------------------------------------------
@@ -1750,10 +2172,8 @@ the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_
 can_attack = True
 jump_tick = 0
 
-gopnik = Gopnik(36, 11)
-trader = Trader(15, 10)
-
-score_text = create_text("Score: " + str(hero.score), os.path.join("data\\CenturyGothic.ttf"), 16, pygame.Color("white"))
+score_text = create_text("Score: " + str(hero.score), os.path.join("data\\CenturyGothic.ttf"), 16,
+                         pygame.Color("white"))
 
 tutorial_board = pygame.Surface([160, 120], pygame.SRCALPHA)
 pygame.draw.rect(tutorial_board, pygame.Color("brown"), (0, 0, 160, 120), 10)
@@ -1763,7 +2183,7 @@ tutorial_text = create_text("J            attack", os.path.join("data\\CenturyGo
 tutorial_board.blit(tutorial_text, (10, 30))
 tutorial_text = create_text("K            shield", os.path.join("data\\CenturyGothic.ttf"), 16, pygame.Color("white"))
 tutorial_board.blit(tutorial_text, (10, 50))
-tutorial_text = create_text("L talk(with trader)", os.path.join("data\\CenturyGothic.ttf"), 16, pygame.Color("white"))
+tutorial_text = create_text("H talk(with trader)", os.path.join("data\\CenturyGothic.ttf"), 16, pygame.Color("white"))
 tutorial_board.blit(tutorial_text, (10, 70))
 tutorial_text = create_text("gopnik steals gold!", os.path.join("data\\CenturyGothic.ttf"), 16, pygame.Color("white"))
 tutorial_board.blit(tutorial_text, (10, 90))
@@ -1771,18 +2191,40 @@ tutorial_board.blit(tutorial_text, (10, 90))
 
 def init_images():
     pause_icon = load_image("pause-icon.png").convert_alpha()  # 64x64
-    settings_icon = load_image("settings.png").convert_alpha()
     back_arrow_icon = load_image("back_arrow.png").convert_alpha()
     leader_board_icon = load_image("leader_board_icon.png", (145, 160, 161)).convert_alpha()
+    health_icon = load_image("health.png").convert_alpha()
+    health_half_icon = load_image("health_half.png").convert_alpha()
+    sword_icon = load_image("sword.png").convert_alpha()
+    sword_half_icon = load_image("sword_half.png").convert_alpha()
+    shield_icon = load_image("shield.png").convert_alpha()
+    shield_half_icon = load_image("shield_half.png").convert_alpha()
+    double_jump_icon = load_image("double_jump.png").convert_alpha()
+    double_jump_half_icon = load_image("double_jump_half.png").convert_alpha()
+    you_died = load_image("YOU_DIED.png").convert_alpha()
+    win_screen = load_image("win-screen.png")
+    bg1 = load_image("bg1.png")
+    bg2 = load_image("bg2.png")
     IMAGES["pause-icon"] = pause_icon
-    IMAGES["settings"] = settings_icon
     IMAGES["leader_board"] = leader_board_icon
     IMAGES["back_arrow"] = back_arrow_icon
+    IMAGES["health"] = health_icon
+    IMAGES["health_half"] = health_half_icon
+    IMAGES["sword"] = sword_icon
+    IMAGES["sword_half"] = sword_half_icon
+    IMAGES["shield"] = shield_icon
+    IMAGES["shield_half"] = shield_half_icon
+    IMAGES["double_jump"] = double_jump_icon
+    IMAGES["double_jump_half"] = double_jump_half_icon
+    IMAGES["you_died"] = you_died
+    IMAGES["bg1"] = bg1
+    IMAGES["bg2"] = bg2
+    IMAGES["win_screen"] = win_screen
 
 
 def generate_maps():
     maps = []
-    for i in range(1, 22):
+    for i in range(1, 21):
         filename = os.path.join("data", "all_maps", f"map_{i}.txt")
         file = open(filename, "r")
         level_map = file.read()
@@ -1799,7 +2241,8 @@ def generate_maps():
 
 def generate_map_relation(obj):  # directions relating to next_level
     global CURRENT_MAP
-    if CURRENT_MAP == 0:
+    print(CURRENT_MAP)
+    if CURRENT_MAP == 0 or CURRENT_MAP == "map.txt":
         return "map_1_1.txt", DIRECTIONS["left"]
     map = CURRENT_MAP.strip("map_").rstrip(".txt")
     map = map.split("_")
@@ -1824,20 +2267,23 @@ def generate_map_relation(obj):  # directions relating to next_level
 
 init_images()
 start_menu()
-generate_maps()
-
+print(open("data\\last_save.txt", "r").read())
+if open("data\\last_save.txt", "r").read() == "":
+    generate_maps()
+get_stats()
 draw_overlapping_screen()
 
 
 def reset_level():
     global all_hero, all_blocks, all_enemies_sprite, all_prujinks, block_vertical_borders, \
         block_down_horizontal_borders, block_up_horizontal_borders, platform_horizontal_borders, \
-        next_level_horizontal_border_group, next_level_vertical_border_group, all_ladders
+        next_level_horizontal_border_group, next_level_vertical_border_group, all_ladders, all_npcs
     all_hero = pygame.sprite.Group()
     all_blocks = pygame.sprite.Group()
     all_enemies_sprite = pygame.sprite.Group()
     all_prujinks = pygame.sprite.Group()
     all_ladders = pygame.sprite.Group()
+    all_npcs = pygame.sprite.Group()
 
     block_vertical_borders = pygame.sprite.Group()
     block_down_horizontal_borders = pygame.sprite.Group()
@@ -1848,8 +2294,10 @@ def reset_level():
 
 
 def check_and_change_level(group):  # (y ↑ x →)
-    global hero, next_levels_pos, CURRENT_MAP, the_big_screen, true_width, true_height, level_width, level_height
+    global hero, next_levels_pos, CURRENT_MAP, the_big_screen, true_width, true_height, level_width, level_height, BG_SCROLL_X, BG_SCROLL_Y
     collide_obj = pygame.sprite.spritecollide(hero, group, 0, 0)
+    BG_SCROLL_X += -hero.rect.x // (BLOCK_SIZE * 4)
+    BG_SCROLL_Y += -hero.rect.y // (BLOCK_SIZE * 4)
     if collide_obj:
         hero_x, hero_y = hero.vel_x, hero.vel_y
         collide_obj = collide_obj[0]
@@ -1858,16 +2306,26 @@ def check_and_change_level(group):  # (y ↑ x →)
                 reset_level()
                 CURRENT_MAP, new_pos = generate_map_relation(collide_obj)
                 hp = hero.hp
-                score = hero.score
+                set_stats()
                 hero, level_width, level_height, next_levels_pos, true_width, true_height = load_and_generate_map(
                     CURRENT_MAP, new_pos)
                 hero.hp = hp
-                hero.score = score
+                get_stats()
                 hero.vel_x, hero.vel_y = hero_x, hero_y
                 the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
-                return
+                if MAP_X == 3 and MAP_Y == 3:
+                    return True
+                return False
+
 
 while running:
+    if (CURRENT_MAP == 0 or CURRENT_MAP == os.path.join("data\\maps\\map.txt")) and current_music != adventure_music:
+        current_music = adventure_music
+        pygame.mixer.music.stop()
+        pygame.mixer.music.load(adventure_music)
+        pygame.mixer.music.set_volume(60)
+        pygame.mixer.music.play()
+
     score_text = create_text("Score: " + str(hero.score), os.path.join("data\\CenturyGothic.ttf"), 16,
                              pygame.Color("white"))
     for event in pygame.event.get():
@@ -1900,8 +2358,8 @@ while running:
                     pause()
     hero.moving = False
     keys = pygame.key.get_pressed()
-    check_and_change_level(next_level_horizontal_border_group)
-    check_and_change_level(next_level_vertical_border_group)
+    is_boss = check_and_change_level(next_level_horizontal_border_group)
+    is_boss = is_boss or check_and_change_level(next_level_vertical_border_group)
     if keys[pygame.K_ESCAPE]:
         pause()
     if keys[pygame.K_w] and hero.jump_amount > 0 and not hero.is_blocking and not hero.knocked_back:
@@ -1945,6 +2403,7 @@ while running:
     if keys[pygame.K_j] and can_attack and hero.attack_type == 0 and not hero.knocked_back:
         if hero.is_down and hero.standing is False:
             pygame.time.set_timer(1, ATTACK_SWING)
+            hero.is_preattacking = True
             hero.attack_type = 2
         elif hero.is_down is False:
             pygame.time.set_timer(1, ATTACK_SWING)
@@ -1954,10 +2413,6 @@ while running:
         hero.is_blocking = True
     else:
         hero.is_blocking = False
-    if keys[pygame.K_l]:
-        hero.talk = True
-    else:
-        hero.talk = False
     if prujinka_collision(hero):
         hero_springjump_sound.play()
         jump_tick = 0
@@ -1967,6 +2422,10 @@ while running:
         hero.is_jump = True
         hero.standing = False
         hero.vel_y = - int(FALLING_MAX * 2.5)
+    if keys[pygame.K_ESCAPE]:
+        pause()
+    if pygame.sprite.spritecollideany(hero, all_npcs) and keys[pygame.K_h]:
+        shop()
     damage_check()
     all_hero.update()
     all_projectiles_sprite.update()
@@ -1976,6 +2435,10 @@ while running:
     draw_overlapping_screen()
     if jump_tick > 0:
         jump_tick -= 1
+    HERO_X, HERO_Y = hero.rect.x, hero.rect.y
+    BG_SCROLL_X, BG_SCROLL_Y = -(hero.rect.x // (BLOCK_SIZE * 4)) - 400, -(hero.rect.y // 100) - 250
+    if is_boss:
+        boss_alert()
     clock.tick(FPS)
     # pygame.draw.rect(screen, pygame.Color("green"), (hero.rect.x, hero.rect.y, hero.rect.width, hero.rect.height), 1)
     pygame.display.flip()
