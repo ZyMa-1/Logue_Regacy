@@ -78,17 +78,17 @@ def get_stats():
     hero.max_hp = int(file[0])
     hero.attack_damage = float(file[1])
     hero.block_amount = float(file[2])
-    hero.jump_max = int(file[3]) + 1
-    hero.jump_amount = hero.jump_max
+    hero.jump_max = int(file[3])
     gold = int(file[4])
     hero.score = int(file[5])
 
 
 def set_stats():
+    print(hero.jump_max)
     filename = os.path.join("data", "stats.txt")
     file = open(filename, 'w')
     file.writelines([str(hero.max_hp) + '\n', str(hero.attack_damage) + '\n', f"{str(hero.block_amount)}\n",
-                     f"{str(hero.jump_amount)}\n", str(gold) + '\n',
+                     f"{str(hero.jump_max)}\n", str(gold) + '\n',
                      str(hero.score) + '\n'])
 
 
@@ -102,9 +102,7 @@ def save_game():
 
 
 def load_save_game():
-    global hero, next_levels_pos, CURRENT_MAP, the_big_screen, true_width, true_height, level_width, level_height, gold
-    get_stats()
-    hero_x, hero_y = hero.vel_x, hero.vel_y
+    global hero, next_levels_pos, CURRENT_MAP, the_big_screen, true_width, true_height, level_width, level_height, gold, jump_tick, can_attack, tutorial_board
     file = [line.strip() for line in open("data\\last_save.txt", "r")]
     if CURRENT_MAP == "map_0_0.txt":
         CURRENT_MAP = "map.txt"
@@ -116,8 +114,27 @@ def load_save_game():
     hero.hp = int(file[3])
     gold = int(file[4])
     hero.score = int(file[5])
-    hero.vel_x, hero.vel_y = hero_x, hero_y
+    get_stats()
+    tutorial_board = pygame.Surface([160, 120], pygame.SRCALPHA)
+    pygame.draw.rect(tutorial_board, pygame.Color("brown"), (0, 0, 160, 120), 10)
+    tutorial_text = create_text("WASD           move", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 10))
+    tutorial_text = create_text("J            attack", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 30))
+    tutorial_text = create_text("K            shield", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 50))
+    tutorial_text = create_text("H talk(with trader)", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 70))
+    tutorial_text = create_text("gopnik steals gold!", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 90))
     the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE], pygame.SRCALPHA)
+    jump_tick = 0
+    can_attack = True
 
 
 def draw_main_screen():
@@ -213,7 +230,7 @@ def start_menu():
                     if pygame.Rect.collidepoint(pygame.Rect(670, 410, 100, 100), x, y):  # launch leader_boards screen
                         leader_board()
                     if start_button.is_cover((x, y)):
-                        open("data\\stats.txt", "w").writelines(["100\n", "1\n", "0\n", "0\n", "0\n", "0\n"])
+                        open("data\\stats.txt", "w").writelines(["100\n", "1\n", "0.2\n", "1\n", "0\n", "0\n"])
                         open("data\\last_save.txt", "w").write("")
                         return
                     if continue_button_flag:
@@ -234,6 +251,23 @@ def restart_all_levels():
     MAP_X, MAP_Y, CURRENT_MAP = 0, 0, 0
     hero, level_width, level_height, next_levels_pos, true_width, true_height = load_and_generate_map(
         "map.txt")
+    tutorial_board = pygame.Surface([160, 120], pygame.SRCALPHA)
+    pygame.draw.rect(tutorial_board, pygame.Color("brown"), (0, 0, 160, 120), 10)
+    tutorial_text = create_text("WASD           move", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 10))
+    tutorial_text = create_text("J            attack", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 30))
+    tutorial_text = create_text("K            shield", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 50))
+    tutorial_text = create_text("H talk(with trader)", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 70))
+    tutorial_text = create_text("gopnik steals gold!", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 90))
     get_stats()
     the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
     jump_tick = 0
@@ -322,7 +356,7 @@ def pause():
     global gold, MAP_X, MAP_Y
 
     def draw_main_surface():
-        main_surface.fill(pygame.Color("blue"))
+        main_surface.blit(IMAGES["tablicka"], (-10, -6))
         cutout_x, cutout_y = camera_adjustment()
         cutout = pygame.Rect(cutout_x, cutout_y, size[0], size[1])
         screen.blit(the_big_screen, (0, 0), cutout)
@@ -368,6 +402,7 @@ def pause():
                     save_game()
                     restart_all_levels()
                     start_menu()
+                    get_stats()
                     return
         draw_main_surface()
         pygame.display.flip()
@@ -536,7 +571,7 @@ def shop():
         carts[1].on = 2
     if hero.block_amount > 0.2:
         carts[2].on = 2
-    if hero.jump_amount > 1:
+    if hero.jump_max > 1:
         carts[3].on = 2
     while True:
         click_flag = False
@@ -678,7 +713,9 @@ def load_and_generate_map(filename, new_pos=None, player_flag_saved=False, pl_x=
             if level[y][x] == '*':
                 Prujinka(x, y)
             if level[y][x] == 'v' and level[y + 1][x] != 'v':
-                Trader(x, y - 1)
+                Trader(x, y - 5)
+            if level[y][x] == 'g':
+                Gopnik(x, y)
             if level[y][x] == '-':
                 if y == 0 or y == len(level) - 1:
                     if x > 0 and level[y][x - 1] != '-':
@@ -2125,30 +2162,6 @@ next_level_vertical_border_group = pygame.sprite.Group()
 enemy_types = [JumpBot, Turret, JumpTurret, QuadraTurret]
 all_projectiles_sprite = pygame.sprite.Group()
 
-hero, level_width, level_height, next_levels_pos, true_width, true_height = load_and_generate_map("map.txt")
-the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
-can_attack = True
-jump_tick = 0
-
-gopnik = Gopnik(36, 11)
-trader = Trader(15, 10)
-
-score_text = create_text("Score: " + str(hero.score), os.path.join("data\\CenturyGothic.ttf"), 16,
-                         pygame.Color("white"))
-
-tutorial_board = pygame.Surface([160, 120], pygame.SRCALPHA)
-pygame.draw.rect(tutorial_board, pygame.Color("brown"), (0, 0, 160, 120), 10)
-tutorial_text = create_text("WASD           move", os.path.join("data\\CenturyGothic.ttf"), 16, pygame.Color("white"))
-tutorial_board.blit(tutorial_text, (10, 10))
-tutorial_text = create_text("J            attack", os.path.join("data\\CenturyGothic.ttf"), 16, pygame.Color("white"))
-tutorial_board.blit(tutorial_text, (10, 30))
-tutorial_text = create_text("K            shield", os.path.join("data\\CenturyGothic.ttf"), 16, pygame.Color("white"))
-tutorial_board.blit(tutorial_text, (10, 50))
-tutorial_text = create_text("L talk(with trader)", os.path.join("data\\CenturyGothic.ttf"), 16, pygame.Color("white"))
-tutorial_board.blit(tutorial_text, (10, 70))
-tutorial_text = create_text("gopnik steals gold!", os.path.join("data\\CenturyGothic.ttf"), 16, pygame.Color("white"))
-tutorial_board.blit(tutorial_text, (10, 90))
-
 
 def init_images():
     pause_icon = load_image("pause-icon.png").convert_alpha()  # 64x64
@@ -2163,6 +2176,7 @@ def init_images():
     double_jump_icon = load_image("double_jump.png").convert_alpha()
     double_jump_half_icon = load_image("double_jump_half.png").convert_alpha()
     you_died = load_image("YOU_DIED.png").convert_alpha()
+    tablicka = load_image("tablicka.png").convert_alpha()
     win_screen = load_image("win-screen.png")
     bg1 = load_image("bg1.png")
     bg2 = load_image("bg2.png")
@@ -2181,6 +2195,7 @@ def init_images():
     IMAGES["bg1"] = bg1
     IMAGES["bg2"] = bg2
     IMAGES["win_screen"] = win_screen
+    IMAGES["tablicka"] = tablicka
 
 
 def generate_maps():
@@ -2228,11 +2243,35 @@ def generate_map_relation(obj):  # directions relating to next_level
 
 init_images()
 start_menu()
-print(open("data\\last_save.txt", "r").read())
 if open("data\\last_save.txt", "r").read() == "":
+    hero, level_width, level_height, next_levels_pos, true_width, true_height = load_and_generate_map("map.txt")
+    the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
+    can_attack = True
+    jump_tick = 0
+
+    score_text = create_text("Score: " + str(hero.score), os.path.join("data\\CenturyGothic.ttf"), 16,
+                             pygame.Color("white"))
     generate_maps()
-get_stats()
-draw_overlapping_screen()
+    get_stats()
+
+    tutorial_board = pygame.Surface([160, 120], pygame.SRCALPHA)
+    pygame.draw.rect(tutorial_board, pygame.Color("brown"), (0, 0, 160, 120), 10)
+    tutorial_text = create_text("WASD           move", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 10))
+    tutorial_text = create_text("J            attack", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 30))
+    tutorial_text = create_text("K            shield", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 50))
+    tutorial_text = create_text("H talk(with trader)", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 70))
+    tutorial_text = create_text("gopnik steals gold!", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 90))
+    draw_overlapping_screen()
 
 
 def reset_level():
@@ -2255,7 +2294,9 @@ def reset_level():
 
 
 def check_and_change_level(group):  # (y ↑ x →)
-    global hero, next_levels_pos, CURRENT_MAP, the_big_screen, true_width, true_height, level_width, level_height, BG_SCROLL_X, BG_SCROLL_Y
+    global hero, next_levels_pos, CURRENT_MAP, the_big_screen, true_width, true_height, level_width, level_height, BG_SCROLL_X, BG_SCROLL_Y, tutorial_board
+    if CURRENT_MAP != 0 and CURRENT_MAP != "map.txt":
+        tutorial_board = pygame.Surface([0, 0])
     collide_obj = pygame.sprite.spritecollide(hero, group, 0, 0)
     BG_SCROLL_X += -hero.rect.x // (BLOCK_SIZE * 4)
     BG_SCROLL_Y += -hero.rect.y // (BLOCK_SIZE * 4)
@@ -2280,8 +2321,6 @@ def check_and_change_level(group):  # (y ↑ x →)
 
 
 while running:
-    score_text = create_text("Score: " + str(hero.score), os.path.join("data\\CenturyGothic.ttf"), 16,
-                             pygame.Color("white"))
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -2379,10 +2418,10 @@ while running:
         hero.is_jump = True
         hero.standing = False
         hero.vel_y = - int(FALLING_MAX * 2.5)
-    if keys[pygame.K_ESCAPE]:
-        pause()
     if pygame.sprite.spritecollideany(hero, all_npcs) and keys[pygame.K_h]:
         shop()
+    score_text = create_text("Score: " + str(hero.score), os.path.join("data\\CenturyGothic.ttf"), 16,
+                             pygame.Color("white"))
     damage_check()
     all_hero.update()
     all_projectiles_sprite.update()
