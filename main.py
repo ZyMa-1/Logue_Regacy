@@ -35,6 +35,7 @@ hero_death_sound = pygame.mixer.Sound(os.path.join("data\\sound_effects\\hero-de
 hero_attack_sound = pygame.mixer.Sound(os.path.join("data\\sound_effects\\hero-attack.wav"))
 hero_springjump_sound = pygame.mixer.Sound(os.path.join("data\\sound_effects\\hero-spring-jump.wav"))
 hero_jump_sound = pygame.mixer.Sound(os.path.join("data\\sound_effects\\hero-jump.wav"))
+congratulations_sound = pygame.mixer.Sound(os.path.join("data\\sound_effects\\congratulations.wav"))
 
 boss_attack_sound = pygame.mixer.Sound(os.path.join("data\\sound_effects\\boss-attack.wav"))
 
@@ -286,7 +287,8 @@ def restart_all_levels():
 
 
 def DIED():
-    global current_music
+    global current_music, BOSS
+    BOSS = 0
     current_music = death_music
     pygame.mixer.music.stop()
     pygame.mixer.music.load(death_music)
@@ -349,6 +351,9 @@ def boss_alert():
 
 
 def win_screen():
+    global BOSS
+    congratulations_sound.play()
+    BOSS = 0
     text = create_text("Press f to continue", "data\\CenturyGothic-Italic.ttf", 19, pygame.Color("white"))
     tick = 0
     screen.fill((0, 0, 0))
@@ -520,12 +525,12 @@ def shop():
             text1 = create_text("Больше атаки", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
             text2 = create_text(f"Сейчас: {str(hero.attack_damage)}damage", "data\\CenturyGothic.ttf", 20,
                                 pygame.Color("white"))
-            text3 = create_text(f"Развитие: +0.5damage", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text3 = create_text(f"Развитие: +30damage", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
             cart_info.blit(text1, (100, 55 + shift))
             cart_info.blit(text2, (20, 150 + shift))
             cart_info.blit(text3, (20, 185 + shift))
             if click and gold >= 20 and buy_button.is_cover((x, y)):
-                hero.attack_damage += 0.5
+                hero.attack_damage += 30
                 gold -= 20
                 carts[current_cart_ind].on = max(2, carts[current_cart_ind].on + 1)
             cart_info.blit(pygame.transform.scale(gold_display(20), (153, 24)), (33, 95 + shift))
@@ -2379,13 +2384,18 @@ def check_and_change_level(group):  # (y ↑ x →)
 
 while running:
     print(CURRENT_MAP, current_music, adventure_music)
-    if current_music != adventure_music:
+    if CURRENT_MAP != "data\\maps\\boss_room.txt" and current_music != adventure_music and BOSS != 0:
         current_music = adventure_music
         pygame.mixer.music.stop()
         pygame.mixer.music.load(adventure_music)
         pygame.mixer.music.set_volume(60)
         pygame.mixer.music.play()
-
+    if BOSS != 0:
+        current_music = boss_music
+        pygame.mixer.music.stop()
+        pygame.mixer.music.load(boss_music)
+        pygame.mixer.music.set_volume(60)
+        pygame.mixer.music.play()
     score_text = create_text("Score: " + str(hero.score), os.path.join("data\\CenturyGothic.ttf"), 16,
                              pygame.Color("white"))
     for event in pygame.event.get():
@@ -2500,7 +2510,7 @@ while running:
     if is_boss:
         boss_alert()
     if BOSS != 0:
-        "boss update?"
+        overlapping_screen.blit(BOSS.draw_health(), (200, 440))
     clock.tick(FPS)
     # pygame.draw.rect(screen, pygame.Color("green"), (hero.rect.x, hero.rect.y, hero.rect.width, hero.rect.height), 1)
     pygame.display.flip()
