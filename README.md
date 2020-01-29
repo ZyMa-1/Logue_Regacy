@@ -78,7 +78,6 @@ def get_stats():
     filename = os.path.join("data", "stats.txt")
     temp = open(filename, 'r')
     file = [line.strip() for line in temp]
-    print(file)
     hero.max_hp = int(file[0])
     hero.attack_damage = float(file[1])
     hero.block_amount = float(file[2])
@@ -89,7 +88,6 @@ def get_stats():
 
 
 def set_stats():
-    print(hero.jump_max)
     filename = os.path.join("data", "stats.txt")
     file = open(filename, 'w')
     file.writelines([str(hero.max_hp) + '\n', str(hero.attack_damage) + '\n', f"{str(hero.block_amount)}\n",
@@ -107,8 +105,10 @@ def save_game():
 
 
 def load_save_game():
-    global hero, next_levels_pos, CURRENT_MAP, the_big_screen, true_width, true_height, level_width, level_height, gold, jump_tick, can_attack, tutorial_board
+
+    global hero, next_levels_pos, CURRENT_MAP, the_big_screen, true_width, true_height, level_width, level_height, gold, jump_tick, can_attack
     file = [line.strip() for line in open("data\\last_save.txt", "r")]
+    CURRENT_MAP = file[0]
     if CURRENT_MAP == "map_0_0.txt":
         CURRENT_MAP = "map.txt"
     CURRENT_MAP = file[0]
@@ -116,28 +116,11 @@ def load_save_game():
                                                                                                       player_flag_saved=True,
                                                                                                       pl_x=int(file[1]),
                                                                                                       pl_y=int(file[2]))
+    the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
     hero.hp = int(file[3])
     gold = int(file[4])
     hero.score = int(file[5])
     get_stats()
-    tutorial_board = pygame.Surface([160, 120], pygame.SRCALPHA)
-    pygame.draw.rect(tutorial_board, pygame.Color("brown"), (0, 0, 160, 120), 10)
-    tutorial_text = create_text("WASD           move", os.path.join("data\\CenturyGothic.ttf"), 16,
-                                pygame.Color("white"))
-    tutorial_board.blit(tutorial_text, (10, 10))
-    tutorial_text = create_text("J            attack", os.path.join("data\\CenturyGothic.ttf"), 16,
-                                pygame.Color("white"))
-    tutorial_board.blit(tutorial_text, (10, 30))
-    tutorial_text = create_text("K            shield", os.path.join("data\\CenturyGothic.ttf"), 16,
-                                pygame.Color("white"))
-    tutorial_board.blit(tutorial_text, (10, 50))
-    tutorial_text = create_text("H talk(with trader)", os.path.join("data\\CenturyGothic.ttf"), 16,
-                                pygame.Color("white"))
-    tutorial_board.blit(tutorial_text, (10, 70))
-    tutorial_text = create_text("gopnik steals gold!", os.path.join("data\\CenturyGothic.ttf"), 16,
-                                pygame.Color("white"))
-    tutorial_board.blit(tutorial_text, (10, 90))
-    the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE], pygame.SRCALPHA)
     jump_tick = 0
     can_attack = True
 
@@ -243,11 +226,11 @@ def start_menu():
                     if start_button.is_cover((x, y)):
                         open("data\\stats.txt", "w").writelines(["100\n", "1\n", "0.2\n", "1\n", "0\n", "0\n"])
                         open("data\\last_save.txt", "w").write("")
-                        return
+                        return True
                     if continue_button_flag:
                         if continue_button.is_cover((x, y)):
                             load_save_game()
-                            return
+                            return False
         main_surface.set_alpha((tick ** 2) / 300)
         draw_main_surface()
         screen.blit(main_surface, (0, 0))
@@ -259,8 +242,7 @@ def start_menu():
 def restart_all_levels():
     reset_level()
     generate_maps()
-    global hero, level_width, level_height, next_levels_pos, true_height, true_width, the_big_screen, can_attack, jump_tick, CURRENT_MAP, MAP_X, MAP_Y, BOSS
-    BOSS = 0
+    global hero, level_width, level_height, next_levels_pos, true_height, true_width, the_big_screen, can_attack, jump_tick, CURRENT_MAP, MAP_X, MAP_Y
     MAP_X, MAP_Y, CURRENT_MAP = 0, 0, 0
     set_stats()
     hero, level_width, level_height, next_levels_pos, true_width, true_height = load_and_generate_map(
@@ -430,7 +412,6 @@ def pause():
                 if exit_button.is_cover((x, y)):
                     pygame.mixer.music.unpause()
                     save_game()
-                    restart_all_levels()
                     pygame.quit()
                     sys.exit(0)
                     return
@@ -518,7 +499,7 @@ def shop():
             cart_info.blit(text1, (100, 55 + shift))
             cart_info.blit(text2, (20, 150 + shift))
             cart_info.blit(text3, (20, 185 + shift))
-            if click and gold >= 10 and buy_button.is_cover((x, y)):
+            if hero.max_hp < 200 and click and gold >= 10 and buy_button.is_cover((x, y)):
                 hero.max_hp += 10
                 hero.hp = hero.max_hp
                 gold -= 10
@@ -529,12 +510,12 @@ def shop():
             text1 = create_text("Больше атаки", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
             text2 = create_text(f"Сейчас: {str(hero.attack_damage)}damage", "data\\CenturyGothic.ttf", 20,
                                 pygame.Color("white"))
-            text3 = create_text(f"Развитие: +30damage", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text3 = create_text(f"Развитие: +1damage", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
             cart_info.blit(text1, (100, 55 + shift))
             cart_info.blit(text2, (20, 150 + shift))
             cart_info.blit(text3, (20, 185 + shift))
             if click and gold >= 20 and buy_button.is_cover((x, y)):
-                hero.attack_damage += 30
+                hero.attack_damage += 1
                 gold -= 20
                 carts[current_cart_ind].on = max(2, carts[current_cart_ind].on + 1)
             cart_info.blit(pygame.transform.scale(gold_display(20), (153, 24)), (33, 95 + shift))
@@ -547,7 +528,7 @@ def shop():
             cart_info.blit(text1, (100, 55 + shift))
             cart_info.blit(text2, (20, 150 + shift))
             cart_info.blit(text3, (20, 185 + shift))
-            if click and gold >= 25 and buy_button.is_cover((x, y)):
+            if hero.block_amount < 0.9 and click and gold >= 25 and buy_button.is_cover((x, y)):
                 hero.block_amount += 0.1
                 gold -= 25
                 carts[current_cart_ind].on = max(2, carts[current_cart_ind].on + 1)
@@ -782,7 +763,6 @@ def load_and_generate_map(filename, new_pos=None, player_flag_saved=False, pl_x=
                         else:
                             next_levels_pos[DIRECTIONS["right"]] = (x, y)
 
-    print(filename, next_levels_pos)
     if filename != "data\\maps\\map.txt" and filename != "data\\maps\\boss_room.txt":
         number_of_enemies = random.randint(max(1, map_x + map_y - 1), max(1, (map_x + map_y - 1)) * 2)
         enemies_pos = set()
@@ -2193,7 +2173,6 @@ class Player(pygame.sprite.Sprite):
     def death(self):
         hero_death_sound.play()
         set_stats()
-        print(hero.score)
         filename = "data\\leader_board.txt"
         file = [line for line in open(filename, 'r')]
         file.append(f"Player-{str(hero.score)}\n")
@@ -2281,7 +2260,6 @@ def generate_maps():
 
 def generate_map_relation(obj):  # directions relating to next_level
     global CURRENT_MAP
-    print(CURRENT_MAP)
     if CURRENT_MAP == 0 or CURRENT_MAP == "map.txt":
         return "map_1_1.txt", DIRECTIONS["left"]
     map = CURRENT_MAP.strip("map_").rstrip(".txt")
@@ -2306,9 +2284,8 @@ def generate_map_relation(obj):  # directions relating to next_level
 
 
 init_images()
-start_menu()
-print(open("data\\last_save.txt", "r").read())
-if open("data\\last_save.txt", "r").read() == "":
+is_continue = start_menu()
+if is_continue:
     hero, level_width, level_height, next_levels_pos, true_width, true_height = load_and_generate_map("map.txt")
     the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
     can_attack = True
@@ -2316,6 +2293,7 @@ if open("data\\last_save.txt", "r").read() == "":
 
     score_text = create_text("Score: " + str(hero.score), os.path.join("data\\CenturyGothic.ttf"), 16,
                              pygame.Color("white"))
+    print("?")
     generate_maps()
     get_stats()
 
@@ -2388,7 +2366,6 @@ def check_and_change_level(group):  # (y ↑ x →)
 
 
 while running:
-    print(CURRENT_MAP, current_music, adventure_music)
     if CURRENT_MAP != "data\\maps\\boss_room.txt" and current_music != adventure_music and BOSS != 0:
         current_music = adventure_music
         pygame.mixer.music.stop()
