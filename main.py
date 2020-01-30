@@ -23,13 +23,13 @@ MAP_X, MAP_Y = 0, 0
 BG_SCROLL_X, BG_SCROLL_Y = -400, -250
 HERO_X, HERO_Y = 0, 0
 BOSS = 0
+FIRST_GAME = True
 DIRECTIONS = {
     "left": 1,
     "up": 2,
     "right": 3,
     "down": 4
 }
-
 hero_hero_hurt_sound = pygame.mixer.Sound(os.path.join("data\\sound_effects\\hero-hurt.wav"))
 hero_death_sound = pygame.mixer.Sound(os.path.join("data\\sound_effects\\hero-death.wav"))
 hero_attack_sound = pygame.mixer.Sound(os.path.join("data\\sound_effects\\hero-attack.wav"))
@@ -38,23 +38,15 @@ hero_jump_sound = pygame.mixer.Sound(os.path.join("data\\sound_effects\\hero-jum
 congratulations_sound = pygame.mixer.Sound(os.path.join("data\\sound_effects\\congratulations.wav"))
 
 boss_attack_sound = pygame.mixer.Sound(os.path.join("data\\sound_effects\\boss-attack.wav"))
+trader_sound = pygame.mixer.Sound(os.path.join("data\\sound_effects\\trader-sound.wav"))
 
 menu_music = os.path.join("data\\music\\menu-music.mp3")
 death_music = os.path.join("data\\music\\death-music.mp3")
 adventure_music = os.path.join("data\\music\\usual-music.mp3")
 boss_music = os.path.join("data\\music\\boss-music.mp3")
+shop_music = os.path.join("data\\music\\shop-music.mp3")
 
 current_music = menu_music
-
-# pygame.mixer.music.load(menu_music) - загрузка
-
-# pygame.mixer.music.play(-1) -играть что загружено
-
-# pygame.mixer.music.stop() - остановить
-
-# pygame.mixer.music.fadeout() - остановить и она будет медленно уходить
-
-# pygame.mixer.music.set_volume() - звук
 
 clock = pygame.time.Clock()
 """
@@ -85,6 +77,8 @@ def get_stats():
     hero.jump_amount = hero.jump_max
     gold = int(file[4])
     hero.score = int(file[5])
+    hero.gop_stop = float(file[6])
+    hero.name = str(file[7])
 
 
 def set_stats():
@@ -92,7 +86,7 @@ def set_stats():
     file = open(filename, 'w')
     file.writelines([str(hero.max_hp) + '\n', str(hero.attack_damage) + '\n', f"{str(hero.block_amount)}\n",
                      f"{str(hero.jump_max)}\n", str(gold) + '\n',
-                     str(hero.score) + '\n'])
+                     str(hero.score) + '\n', str(hero.gop_stop) + '\n', hero.name + '\n'])
 
 
 def save_game():
@@ -105,7 +99,6 @@ def save_game():
 
 
 def load_save_game():
-
     global hero, next_levels_pos, CURRENT_MAP, the_big_screen, true_width, true_height, level_width, level_height, gold, jump_tick, can_attack
     file = [line.strip() for line in open("data\\last_save.txt", "r")]
     CURRENT_MAP = file[0]
@@ -194,8 +187,9 @@ def start_menu():
 
     global current_music
     current_music = menu_music
-    pygame.mixer.music.fadeout(5)
+    pygame.mixer.music.stop()
     pygame.mixer.music.load(menu_music)
+    pygame.mixer.music.set_volume(1)
     pygame.mixer.music.play(-1)
 
     main_surface = pygame.Surface([size[0], size[1]])
@@ -224,12 +218,14 @@ def start_menu():
                     if pygame.Rect.collidepoint(pygame.Rect(670, 410, 100, 100), x, y):  # launch leader_boards screen
                         leader_board()
                     if start_button.is_cover((x, y)):
-                        open("data\\stats.txt", "w").writelines(["100\n", "1\n", "0.2\n", "1\n", "0\n", "0\n"])
+                        open("data\\stats.txt", "w").writelines(
+                            ["100\n", "1\n", "0.2\n", "1\n", "0\n", "0\n", "1\n", "Player\n"])
                         open("data\\last_save.txt", "w").write("")
                         return True
                     if continue_button_flag:
                         if continue_button.is_cover((x, y)):
-                            load_save_game()
+                            if FIRST_GAME:
+                                load_save_game()
                             return False
         main_surface.set_alpha((tick ** 2) / 300)
         draw_main_surface()
@@ -278,6 +274,7 @@ def DIED():
     current_music = death_music
     pygame.mixer.music.stop()
     pygame.mixer.music.load(death_music)
+    pygame.mixer.music.set_volume(1)
     pygame.mixer.music.play(-1)
     generate_maps()
     text = create_text("Press f to continue", "data\\CenturyGothic-Italic.ttf", 19, pygame.Color("white"))
@@ -359,6 +356,63 @@ def win_screen():
         tick += 1
 
 
+def hero_name_set():
+    tick = 0
+    cursor_on = False
+
+    def draw_main_surface():
+        x, y = pygame.mouse.get_pos()
+        screen.blit(fon, (-x // 30 - 15, -y // 30 - 150))
+        main_surface = pygame.Surface([800, 1000], pygame.SRCALPHA)
+        main_surface.blit(intro_text, (5, 3))
+        input_text = create_text(current_input, "data\\CenturyGothic.ttf", 30, pygame.Color("white"))
+        main_surface.blit(input_text, (intro_text.get_width() + 10, 5))
+        if cursor_on:
+            pygame.draw.rect(main_surface, pygame.Color("white"),
+                             (intro_text.get_width() + input_text.get_width() + 10, 0, 8, input_text.get_height() + 10),
+                             0)
+        screen.blit(main_surface, (200, 250 - intro_text.get_height() // 2))
+        if len(current_input) != 0:
+            continue_button.draw(screen, (x, y))
+
+    current_input = ""
+    fon = load_image("shop_bg.png")
+    intro_text = create_text("Input hero name: ", "data\\CenturyGothic.ttf", 30, pygame.Color("white"))
+    continue_text = create_text("Continue", "data\\CenturyGothic-Bold.ttf", 30, pygame.Color(18, 196, 30), 5)
+    continue_text_cover = create_text("Continue", "data\\CenturyGothic-Bold.ttf", 39, pygame.Color(18, 196, 30), 5)
+    continue_button = Button(400 - continue_text.get_width() // 2, 440 - continue_text.get_height() // 2,
+                             continue_text,
+                             continue_text_cover)
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit(0)
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    if continue_button.is_cover(pygame.mouse.get_pos()):
+                        hero.name = current_input
+                        set_stats()
+                        return
+            if event.type == pygame.KEYDOWN:
+                key = event.key
+                if key == pygame.K_BACKSPACE:
+                    current_input = current_input[:-1]
+                    continue
+                if not (0 <= key - 97 <= 25 or 0 <= key - 45 <= 9) or len(current_input) >= 10:
+                    continue
+                if pygame.key.get_mods() & pygame.KMOD_SHIFT:
+                    key -= 32
+                current_input += chr(key)
+        if tick >= 30:
+            tick = 0
+            cursor_on = True - cursor_on
+        draw_main_surface()
+        pygame.display.flip()
+        clock.tick(FPS)
+        tick += 1
+
+
 def pause():
     global gold, MAP_X, MAP_Y
 
@@ -389,8 +443,8 @@ def pause():
     restart_text_cover = create_text("Restart", "data\\CenturyGothic-Bold.ttf", 35, pygame.Color(18, 196, 30), 5)
     restart_button = Button(200 - restart_text.get_width() // 2, 120 - restart_text.get_height() // 2, restart_text,
                             restart_text_cover)
-    exit_text = create_text("Exit", "data\\CenturyGothic-Bold.ttf", 31, pygame.Color(18, 196, 30), 5)
-    exit_text_cover = create_text("Exit", "data\\CenturyGothic-Bold.ttf", 35, pygame.Color(18, 196, 30), 5)
+    exit_text = create_text("Save and exit", "data\\CenturyGothic-Bold.ttf", 31, pygame.Color(18, 196, 30), 5)
+    exit_text_cover = create_text("Save and exit", "data\\CenturyGothic-Bold.ttf", 35, pygame.Color(18, 196, 30), 5)
     exit_button = Button(200 - exit_text.get_width() // 2, 190 - exit_text.get_height() // 2, exit_text,
                          exit_text_cover)
     while True:
@@ -412,8 +466,7 @@ def pause():
                 if exit_button.is_cover((x, y)):
                     pygame.mixer.music.unpause()
                     save_game()
-                    pygame.quit()
-                    sys.exit(0)
+                    start_menu()
                     return
         draw_main_surface()
         pygame.display.flip()
@@ -470,13 +523,22 @@ class Upgrade_cart(pygame.sprite.Sprite):
             for cart in self.carts_list:
                 if cart.on == 0:
                     cart.on = 1
-                    cart.update()
+                    cart.update_on()
 
 
 def shop():
+    global current_music
+
     carts = []
     current_cart_ind = 0
     cart_info_copy = load_image("cart_info.png")
+    trader_sound.play()
+
+    current_music = shop_music
+    pygame.mixer.music.stop()
+    pygame.mixer.music.load(current_music)
+    pygame.mixer.music.set_volume(0.8)
+    pygame.mixer.music.play(-1)
 
     def draw_cart_info(click):
         global gold
@@ -493,9 +555,10 @@ def shop():
         buy_button.draw(cart_info, (x, y))
         if current_cart_ind == 0:
             cart_info.blit(IMAGES["health"], (30, 30 + shift))
-            text1 = create_text("Больше здоровья", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
-            text2 = create_text(f"Сейчас: {str(hero.max_hp)}hp", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
-            text3 = create_text(f"Развитие: +10hp", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text1 = create_text("Health up", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text2 = create_text(f"Current: {str(hero.max_hp)}health", "data\\CenturyGothic.ttf", 20,
+                                pygame.Color("white"))
+            text3 = create_text(f"Upgrade: +10health", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
             cart_info.blit(text1, (100, 55 + shift))
             cart_info.blit(text2, (20, 150 + shift))
             cart_info.blit(text3, (20, 185 + shift))
@@ -503,46 +566,70 @@ def shop():
                 hero.max_hp += 10
                 hero.hp = hero.max_hp
                 gold -= 10
-                carts[current_cart_ind].on = max(2, carts[current_cart_ind].on + 1)
+                carts[current_cart_ind].on = min(2, carts[current_cart_ind].on + 1)
             cart_info.blit(pygame.transform.scale(gold_display(10), (153, 24)), (33, 95 + shift))
         if current_cart_ind == 1:
             cart_info.blit(IMAGES["sword"], (30, 30 + shift))
-            text1 = create_text("Больше атаки", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
-            text2 = create_text(f"Сейчас: {str(hero.attack_damage)}damage", "data\\CenturyGothic.ttf", 20,
+            text1 = create_text("Damage up", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text2 = create_text(f"Current: {str(hero.attack_damage)}damage", "data\\CenturyGothic.ttf", 20,
                                 pygame.Color("white"))
-            text3 = create_text(f"Развитие: +1damage", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text3 = create_text(f"Upgrade: +1damage", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
             cart_info.blit(text1, (100, 55 + shift))
             cart_info.blit(text2, (20, 150 + shift))
             cart_info.blit(text3, (20, 185 + shift))
             if click and gold >= 20 and buy_button.is_cover((x, y)):
                 hero.attack_damage += 1
                 gold -= 20
-                carts[current_cart_ind].on = max(2, carts[current_cart_ind].on + 1)
+                carts[current_cart_ind].on = min(2, carts[current_cart_ind].on + 1)
             cart_info.blit(pygame.transform.scale(gold_display(20), (153, 24)), (33, 95 + shift))
         if current_cart_ind == 2:
             cart_info.blit(IMAGES["shield"], (30, 30 + shift))
-            text1 = create_text("Больше защиты", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
-            text2 = create_text(f"Сейчас: {str(round(hero.block_amount, 2))}shield", "data\\CenturyGothic.ttf", 20,
+            text1 = create_text("Shield up", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text2 = create_text(f"Current: {str(int(hero.block_amount * 100))}%shield", "data\\CenturyGothic.ttf", 20,
                                 pygame.Color("white"))
-            text3 = create_text(f"Развитие: +0.1shield", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text3 = create_text(f"Upgrade: +10%shield", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
             cart_info.blit(text1, (100, 55 + shift))
             cart_info.blit(text2, (20, 150 + shift))
             cart_info.blit(text3, (20, 185 + shift))
-            if hero.block_amount < 0.9 and click and gold >= 25 and buy_button.is_cover((x, y)):
+            if hero.block_amount < 0.8 and click and gold >= 25 and buy_button.is_cover((x, y)):
                 hero.block_amount += 0.1
                 gold -= 25
-                carts[current_cart_ind].on = max(2, carts[current_cart_ind].on + 1)
+                carts[current_cart_ind].on = min(2, carts[current_cart_ind].on + 1)
             cart_info.blit(pygame.transform.scale(gold_display(25), (153, 24)), (33, 95 + shift))
         if current_cart_ind == 3:
             cart_info.blit(IMAGES["double_jump"], (30, 30 + shift))
-            text1 = create_text("Двойной прыжок", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text1 = create_text("Double jump", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
             cart_info.blit(text1, (100, 55 + shift))
-            if click and gold >= 100 and buy_button.is_cover((x, y)) and hero.jump_max != 2:
+            if click and gold >= 100 and buy_button.is_cover((x, y)) and hero.jump_max < 2:
                 hero.jump_max = 2
                 hero.jump_amount = hero.jump_max
                 gold -= 100
-                carts[current_cart_ind].on = max(2, carts[current_cart_ind].on + 1)
+                carts[current_cart_ind].on = min(2, carts[current_cart_ind].on + 1)
             cart_info.blit(pygame.transform.scale(gold_display(100), (153, 24)), (33, 95 + shift))
+        if current_cart_ind == 4:
+            cart_info.blit(IMAGES["triple_jump"], (30, 30 + shift))
+            text1 = create_text("Triple jump", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            cart_info.blit(text1, (100, 55 + shift))
+            if click and gold >= 200 and buy_button.is_cover((x, y)) and hero.jump_max < 3:
+                hero.jump_max = 3
+                hero.jump_amount = hero.jump_max
+                gold -= 200
+                carts[current_cart_ind].on = min(2, carts[current_cart_ind].on + 1)
+            cart_info.blit(pygame.transform.scale(gold_display(200), (153, 24)), (33, 95 + shift))
+        if current_cart_ind == 5:
+            cart_info.blit(IMAGES["gopstop"], (30, 30 + shift))
+            text1 = create_text("Less gopstop", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text2 = create_text(f"Current: {str(int(hero.gop_stop * 100))}%gopstop", "data\\CenturyGothic.ttf", 20,
+                                pygame.Color("white"))
+            text3 = create_text(f"Upgrade: -10%gopstop", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            cart_info.blit(text1, (100, 55 + shift))
+            cart_info.blit(text2, (20, 150 + shift))
+            cart_info.blit(text3, (20, 185 + shift))
+            if click and gold >= 50 and buy_button.is_cover((x, y)) and hero.gop_stop > 0.1:
+                hero.gop_stop -= 0.1
+                gold -= 50
+                carts[current_cart_ind].on = min(2, carts[current_cart_ind].on + 1)
+            cart_info.blit(pygame.transform.scale(gold_display(50), (153, 24)), (33, 95 + shift))
         return cart_info
 
     def draw_main_surface(cart_info):
@@ -550,8 +637,8 @@ def shop():
         screen.blit(fon, (-x // 30 - 15, -y // 30 - 150))
         for cart in carts:
             cart.update_on()
-            cart.draw(upgrade_tree)
-        screen.blit(upgrade_tree, (0, 0))
+            cart.draw(screen)
+        screen.blit(upgrade_tree, (-10, 20))
         screen.blit(cart_info, (450, 50))
         screen.blit(gold_display(gold), (100, 50))
         screen.blit(IMAGES["back_arrow"], (20, 20))
@@ -570,12 +657,23 @@ def shop():
     carts.append(cart)
     # +block(2)
     cart = Upgrade_cart(290, 260, 0, IMAGES["shield_half"], IMAGES["shield"])
+    cart.connect_lines([Line(315, 220, 325, 260)])
     carts[0].connect_cart(cart)
     carts.append(cart)
     # +double_jump(3)
     cart = Upgrade_cart(150, 160, 0, IMAGES["double_jump_half"], IMAGES["double_jump"])
+    cart.connect_lines([Line(175, 120, 185, 160)])
     carts[1].connect_cart(cart)
     carts.append(cart)
+    # +triple_jump(4)
+    cart = Upgrade_cart(150, 60, 0, IMAGES["triple_jump_half"], IMAGES["triple_jump"])
+    carts[3].connect_cart(cart)
+    carts.append(cart)
+    # +gopstop(5)
+    cart = Upgrade_cart(290, 160, 0, IMAGES["gopstop_half"], IMAGES["gopstop"])
+    carts[2].connect_cart(cart)
+    carts.append(cart)
+    # set cart.on to 2 if player's stats greater then usual
     if hero.max_hp > 100:
         carts[0].on = 2
     if hero.attack_damage > 1:
@@ -584,6 +682,8 @@ def shop():
         carts[2].on = 2
     if hero.jump_max > 1:
         carts[3].on = 2
+    if hero.jump_max > 2:
+        carts[4].on = 2
     while True:
         click_flag = False
         for event in pygame.event.get():
@@ -598,7 +698,8 @@ def shop():
                 if event.button == 1:
                     click_flag = True
                     for i in range(len(carts)):
-                        if carts[i].on != 0 and carts[i].is_cover(pygame.mouse.get_pos()):
+                        if carts[i].on != 0 and carts[i].is_cover((x, y)):
+                            trader_sound.play()
                             current_cart_ind = i
                     if dist(x, y, 52, 52) <= 32:
                         return
@@ -724,7 +825,7 @@ def load_and_generate_map(filename, new_pos=None, player_flag_saved=False, pl_x=
             if level[y][x] == '*':
                 Prujinka(x, y)
             if level[y][x] == 'v' and level[y + 1][x] != 'v':
-                Trader(x, y - 5)
+                Trader(x, y - 3)
             if level[y][x] == 'g':
                 Gopnik(x, y)
             if level[y][x] == 'B':
@@ -1145,8 +1246,8 @@ class Trader(pygame.sprite.Sprite):
         x *= BLOCK_SIZE
         y *= BLOCK_SIZE
 
-        self.rect = pygame.Rect(x, y, 155, 300)
-        self.image = pygame.Surface([155, 300], pygame.SRCALPHA)
+        self.rect = pygame.Rect(x, y, 97, 200)
+        self.image = pygame.Surface([97, 200], pygame.SRCALPHA)
         self.image.blit(Trader.image_idle, (0, 0))
 
     def update(self):
@@ -1169,7 +1270,7 @@ class Gopnik(pygame.sprite.Sprite):
     def update(self):
         global gold
         if pygame.sprite.spritecollideany(self, all_hero):
-            gold = gold * hero.gop_stop
+            gold = round(gold * (1 - hero.gop_stop))
             all_npcs.remove(self)
             self.kill()
 
@@ -1850,7 +1951,7 @@ class Player(pygame.sprite.Sprite):
         self.moving = False
         self.walk_count = 29
         self.score = 0
-        self.gop_stop = 0
+        self.gop_stop = 1
 
         self.is_jump = False
         self.standing = True
@@ -1877,6 +1978,8 @@ class Player(pygame.sprite.Sprite):
         self.hp = 100
         self.block_amount = 0.2
         self.damage_resistance = 1
+
+        self.name = "Player"
 
     def animate(self):
         self.image.fill(pygame.SRCALPHA)
@@ -2175,7 +2278,7 @@ class Player(pygame.sprite.Sprite):
         set_stats()
         filename = "data\\leader_board.txt"
         file = [line for line in open(filename, 'r')]
-        file.append(f"Player-{str(hero.score)}\n")
+        file.append(f"{hero.name}-{str(hero.score)}\n")
         file1 = open(filename, 'w')
         file1.writelines(file)
         DIED()
@@ -2218,6 +2321,11 @@ def init_images():
     shield_half_icon = load_image("shield_half.png").convert_alpha()
     double_jump_icon = load_image("double_jump.png").convert_alpha()
     double_jump_half_icon = load_image("double_jump_half.png").convert_alpha()
+    triple_jump = load_image("triple_jump.png").convert_alpha()
+    triple_jump_half = load_image("triple_jump_half.png").convert_alpha()
+    gopstop = load_image("gopstop.png").convert_alpha()
+    gopstop_half = load_image("gopstop_half.png").convert_alpha()
+
     you_died = load_image("YOU_DIED.png").convert_alpha()
     tablicka = load_image("tablicka.png").convert_alpha()
     win_screen = load_image("win-screen.png")
@@ -2234,6 +2342,11 @@ def init_images():
     IMAGES["shield_half"] = shield_half_icon
     IMAGES["double_jump"] = double_jump_icon
     IMAGES["double_jump_half"] = double_jump_half_icon
+    IMAGES["triple_jump"] = triple_jump
+    IMAGES["triple_jump_half"] = triple_jump_half
+    IMAGES["gopstop"] = gopstop
+    IMAGES["gopstop_half"] = gopstop_half
+
     IMAGES["you_died"] = you_died
     IMAGES["bg1"] = bg1
     IMAGES["bg2"] = bg2
@@ -2293,7 +2406,6 @@ if is_continue:
 
     score_text = create_text("Score: " + str(hero.score), os.path.join("data\\CenturyGothic.ttf"), 16,
                              pygame.Color("white"))
-    print("?")
     generate_maps()
     get_stats()
 
@@ -2315,6 +2427,7 @@ if is_continue:
                                 pygame.Color("white"))
     tutorial_board.blit(tutorial_text, (10, 90))
     draw_overlapping_screen()
+    hero_name_set()
 else:
     tutorial_board = pygame.Surface([0, 0])
 
@@ -2366,18 +2479,18 @@ def check_and_change_level(group):  # (y ↑ x →)
 
 
 while running:
-    if CURRENT_MAP != "data\\maps\\boss_room.txt" and current_music != adventure_music and BOSS != 0:
+    if CURRENT_MAP != "data\\maps\\boss_room.txt" and current_music != adventure_music and BOSS == 0:
         current_music = adventure_music
         pygame.mixer.music.stop()
         pygame.mixer.music.load(adventure_music)
-        pygame.mixer.music.set_volume(60)
-        pygame.mixer.music.play()
-    if BOSS != 0:
+        pygame.mixer.music.set_volume(0.5)
+        pygame.mixer.music.play(-1)
+    if BOSS != 0 and current_music != boss_music:
         current_music = boss_music
         pygame.mixer.music.stop()
         pygame.mixer.music.load(boss_music)
-        pygame.mixer.music.set_volume(60)
-        pygame.mixer.music.play()
+        pygame.mixer.music.set_volume(0.5)
+        pygame.mixer.music.play(-1)
     score_text = create_text("Score: " + str(hero.score), os.path.join("data\\CenturyGothic.ttf"), 16,
                              pygame.Color("white"))
     for event in pygame.event.get():
@@ -2493,8 +2606,10 @@ while running:
         boss_alert()
     if BOSS != 0:
         overlapping_screen.blit(BOSS.draw_health(), (200, 440))
+    FIRST_GAME = False
     clock.tick(FPS)
     # pygame.draw.rect(screen, pygame.Color("green"), (hero.rect.x, hero.rect.y, hero.rect.width, hero.rect.height), 1)
     pygame.display.flip()
 
+pygame.mixer.music.stop()
 pygame.quit()
