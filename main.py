@@ -64,7 +64,133 @@ _ platform
 one block - 50x50
 """
 
-IMAGES = dict()  # словарь лдя хранения изображений
+IMAGES = dict()  # словарь для хранения изображений
+
+def update_leader_board():
+    filename = "data\\leader_board.txt"
+    file = [line for line in open(filename, 'r')]
+    file.append(f"{hero.name}-{str(hero.score)}\n")
+    file1 = open(filename, 'w')
+    file1.writelines(file)
+def generate_maps():
+    maps = []
+    for i in range(1, 21):
+        filename = os.path.join("data", "all_maps", f"map_{i}.txt")
+        file = open(filename, "r")
+        level_map = file.read()
+        maps.append(level_map)
+    for i in range(1, 4):
+        for j in range(1, 4):
+            if i == j and j == 3:
+                break
+            filename = os.path.join("data", "maps", f"map_{i}_{j}.txt")
+            file = open(filename, "w")
+            random_map = random.choice(maps)
+            file.write(random_map)
+
+
+def generate_map_relation(obj):  # directions relating to next_level
+    global CURRENT_MAP
+    if CURRENT_MAP == 0 or CURRENT_MAP == "map.txt":
+        return "map_1_1.txt", DIRECTIONS["left"]
+    map = CURRENT_MAP.strip("map_").rstrip(".txt")
+    map = map.split("_")
+    x, y = obj.pos
+    if x == 0:
+        map[1] = int(map[1])
+        map[1] -= 1
+        return f"map_{str(map[0])}_{str(map[1])}.txt", DIRECTIONS["right"]
+    if y == 0:
+        map[0] = int(map[0])
+        map[0] += 1
+        return f"map_{str(map[0])}_{str(map[1])}.txt", DIRECTIONS["down"]
+    if x == true_width - 1:
+        map[1] = int(map[1])
+        map[1] += 1
+        return f"map_{str(map[0])}_{str(map[1])}.txt", DIRECTIONS["left"]
+    if y == true_height - 1:
+        map[0] = int(map[0])
+        map[0] -= 1
+        return f"map_{str(map[0])}_{str(map[1])}.txt", DIRECTIONS["up"]
+
+
+def reset_level():
+    global all_hero, all_blocks, all_enemies_sprite, all_prujinks, block_vertical_borders, \
+        block_down_horizontal_borders, block_up_horizontal_borders, platform_horizontal_borders, \
+        next_level_horizontal_border_group, next_level_vertical_border_group, all_ladders, all_npcs, all_projectiles, all_projectiles_sprite
+    all_hero = pygame.sprite.Group()
+    all_blocks = pygame.sprite.Group()
+    all_enemies_sprite = pygame.sprite.Group()
+    all_prujinks = pygame.sprite.Group()
+    all_ladders = pygame.sprite.Group()
+    all_npcs = pygame.sprite.Group()
+    all_projectiles_sprite = pygame.sprite.Group()
+    block_vertical_borders = pygame.sprite.Group()
+    block_down_horizontal_borders = pygame.sprite.Group()
+    block_up_horizontal_borders = pygame.sprite.Group()
+    platform_horizontal_borders = pygame.sprite.Group()
+    next_level_horizontal_border_group = pygame.sprite.Group()
+    next_level_vertical_border_group = pygame.sprite.Group()
+
+
+def check_and_change_level(group):  # (y ↑ x →)
+    global hero, next_levels_pos, CURRENT_MAP, the_big_screen, true_width, true_height, level_width, level_height, BG_SCROLL_X, BG_SCROLL_Y, tutorial_board
+    if CURRENT_MAP != 0 and CURRENT_MAP != "map.txt":
+        tutorial_board = pygame.Surface([0, 0])
+    collide_obj = pygame.sprite.spritecollide(hero, group, 0, 0)
+    BG_SCROLL_X += -hero.rect.x // (BLOCK_SIZE * 4)
+    BG_SCROLL_Y += -hero.rect.y // (BLOCK_SIZE * 4)
+    if collide_obj:
+        hero_x, hero_y = hero.vel_x, hero.vel_y
+        collide_obj = collide_obj[0]
+        for i in next_levels_pos.keys():
+            if next_levels_pos[i] == collide_obj.pos:
+                reset_level()
+                CURRENT_MAP, new_pos = generate_map_relation(collide_obj)
+                hp = hero.hp
+                set_stats()
+                hero, level_width, level_height, next_levels_pos, true_width, true_height = load_and_generate_map(
+                    CURRENT_MAP, new_pos)
+                hero.hp = hp
+                get_stats()
+                hero.vel_x, hero.vel_y = hero_x, hero_y
+                the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
+                if MAP_X == 3 and MAP_Y == 3:
+                    return True
+                return False
+
+
+def new_game():
+    global hero, level_width, level_height, next_levels_pos, true_width, true_height, the_big_screen, can_attack, jump_tick, tutorial_board, score_text, gold
+    hero, level_width, level_height, next_levels_pos, true_width, true_height = load_and_generate_map("map.txt")
+    the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
+    can_attack = True
+    jump_tick = 0
+    gold = 0
+    score_text = create_text("Score: " + str(hero.score), os.path.join("data\\CenturyGothic.ttf"), 16,
+                             pygame.Color("white"))
+    restart_all_levels()
+    get_stats()
+
+    tutorial_board = pygame.Surface([160, 120], pygame.SRCALPHA)
+    pygame.draw.rect(tutorial_board, pygame.Color("brown"), (0, 0, 160, 120), 10)
+    tutorial_text = create_text("WASD           move", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 10))
+    tutorial_text = create_text("J            attack", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 30))
+    tutorial_text = create_text("K            shield", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 50))
+    tutorial_text = create_text("H talk(with trader)", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 70))
+    tutorial_text = create_text("gopnik steals gold!", os.path.join("data\\CenturyGothic.ttf"), 16,
+                                pygame.Color("white"))
+    tutorial_board.blit(tutorial_text, (10, 90))
+    draw_overlapping_screen()
+    hero_name_set()
 
 
 def get_stats():  # загружает данные героя с data/stats.txt
@@ -225,6 +351,7 @@ def start_menu():  # запускает стартовое меню
                         open("data\\stats.txt", "w").writelines(
                             ["100\n", "1\n", "0.2\n", "1\n", "0\n", "0\n", "1\n", "Player\n"])
                         open("data\\last_save.txt", "w").write("")
+                        new_game()
                         return True
                     if continue_button_flag:
                         if continue_button.is_cover((x, y)):
@@ -339,6 +466,7 @@ def boss_alert():  # BOSS_FIGHT экран
 
 def win_screen():  # you win экран
     global BOSS
+    update_leader_board()
     congratulations_sound.play()
     BOSS = 0
     text = create_text("Press f to continue", "data\\CenturyGothic-Italic.ttf", 19, pygame.Color("white"))
@@ -1132,8 +1260,8 @@ class OmniTurret(pygame.sprite.Sprite):
         self.attack_damage = 30  # урон от столкновения с боссом
         self.i_frames = 0
 
-        self.hp = 150
-        self.max_hp = 150
+        self.hp = 50
+        self.max_hp = 50
 
         # создание пуль. Пихаем в список чтобы потом рандомно брать.
         self.projectile_list = []
@@ -1266,7 +1394,6 @@ class OmniTurret(pygame.sprite.Sprite):
 
     def death(self):
         # дает награду за убийство и умирает
-
         global gold
         all_enemies_sprite.remove(self)
         all_enemies.remove(self)
@@ -2333,11 +2460,7 @@ class Player(pygame.sprite.Sprite):
         # смерть, играем звук смерти, устанавливаем св-ва героя и сохраняем в лидерборд очки.
         hero_death_sound.play()
         set_stats()
-        filename = "data\\leader_board.txt"
-        file = [line for line in open(filename, 'r')]
-        file.append(f"{hero.name}-{str(hero.score)}\n")
-        file1 = open(filename, 'w')
-        file1.writelines(file)
+        update_leader_board()
         DIED()  # экран смерти
         hero.score = 0
 
@@ -2411,130 +2534,8 @@ def init_images():  # создание изображений
     IMAGES["tablicka"] = tablicka
 
 
-def generate_maps():
-    maps = []
-    for i in range(1, 21):
-        filename = os.path.join("data", "all_maps", f"map_{i}.txt")
-        file = open(filename, "r")
-        level_map = file.read()
-        maps.append(level_map)
-    for i in range(1, 4):
-        for j in range(1, 4):
-            if i == j and j == 3:
-                break
-            filename = os.path.join("data", "maps", f"map_{i}_{j}.txt")
-            file = open(filename, "w")
-            random_map = random.choice(maps)
-            file.write(random_map)
-
-
-def generate_map_relation(obj):  # directions relating to next_level
-    global CURRENT_MAP
-    if CURRENT_MAP == 0 or CURRENT_MAP == "map.txt":
-        return "map_1_1.txt", DIRECTIONS["left"]
-    map = CURRENT_MAP.strip("map_").rstrip(".txt")
-    map = map.split("_")
-    x, y = obj.pos
-    if x == 0:
-        map[1] = int(map[1])
-        map[1] -= 1
-        return f"map_{str(map[0])}_{str(map[1])}.txt", DIRECTIONS["right"]
-    if y == 0:
-        map[0] = int(map[0])
-        map[0] += 1
-        return f"map_{str(map[0])}_{str(map[1])}.txt", DIRECTIONS["down"]
-    if x == true_width - 1:
-        map[1] = int(map[1])
-        map[1] += 1
-        return f"map_{str(map[0])}_{str(map[1])}.txt", DIRECTIONS["left"]
-    if y == true_height - 1:
-        map[0] = int(map[0])
-        map[0] -= 1
-        return f"map_{str(map[0])}_{str(map[1])}.txt", DIRECTIONS["up"]
-
-
 init_images()
 is_continue = start_menu()
-# создание новой игры или загрузка старой
-if is_continue:
-    hero, level_width, level_height, next_levels_pos, true_width, true_height = load_and_generate_map("map.txt")
-    the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
-    can_attack = True
-    jump_tick = 0
-
-    score_text = create_text("Score: " + str(hero.score), os.path.join("data\\CenturyGothic.ttf"), 16,
-                             pygame.Color("white"))
-    generate_maps()
-    get_stats()
-
-    tutorial_board = pygame.Surface([160, 120], pygame.SRCALPHA)
-    pygame.draw.rect(tutorial_board, pygame.Color("brown"), (0, 0, 160, 120), 10)
-    tutorial_text = create_text("WASD           move", os.path.join("data\\CenturyGothic.ttf"), 16,
-                                pygame.Color("white"))
-    tutorial_board.blit(tutorial_text, (10, 10))
-    tutorial_text = create_text("J            attack", os.path.join("data\\CenturyGothic.ttf"), 16,
-                                pygame.Color("white"))
-    tutorial_board.blit(tutorial_text, (10, 30))
-    tutorial_text = create_text("K            shield", os.path.join("data\\CenturyGothic.ttf"), 16,
-                                pygame.Color("white"))
-    tutorial_board.blit(tutorial_text, (10, 50))
-    tutorial_text = create_text("H talk(with trader)", os.path.join("data\\CenturyGothic.ttf"), 16,
-                                pygame.Color("white"))
-    tutorial_board.blit(tutorial_text, (10, 70))
-    tutorial_text = create_text("gopnik steals gold!", os.path.join("data\\CenturyGothic.ttf"), 16,
-                                pygame.Color("white"))
-    tutorial_board.blit(tutorial_text, (10, 90))
-    draw_overlapping_screen()
-    hero_name_set()
-else:
-    tutorial_board = pygame.Surface([0, 0])
-
-
-def reset_level():
-    global all_hero, all_blocks, all_enemies_sprite, all_prujinks, block_vertical_borders, \
-        block_down_horizontal_borders, block_up_horizontal_borders, platform_horizontal_borders, \
-        next_level_horizontal_border_group, next_level_vertical_border_group, all_ladders, all_npcs, all_projectiles, all_projectiles_sprite
-    all_hero = pygame.sprite.Group()
-    all_blocks = pygame.sprite.Group()
-    all_enemies_sprite = pygame.sprite.Group()
-    all_prujinks = pygame.sprite.Group()
-    all_ladders = pygame.sprite.Group()
-    all_npcs = pygame.sprite.Group()
-    all_projectiles_sprite = pygame.sprite.Group()
-    block_vertical_borders = pygame.sprite.Group()
-    block_down_horizontal_borders = pygame.sprite.Group()
-    block_up_horizontal_borders = pygame.sprite.Group()
-    platform_horizontal_borders = pygame.sprite.Group()
-    next_level_horizontal_border_group = pygame.sprite.Group()
-    next_level_vertical_border_group = pygame.sprite.Group()
-
-
-def check_and_change_level(group):  # (y ↑ x →)
-    global hero, next_levels_pos, CURRENT_MAP, the_big_screen, true_width, true_height, level_width, level_height, BG_SCROLL_X, BG_SCROLL_Y, tutorial_board
-    if CURRENT_MAP != 0 and CURRENT_MAP != "map.txt":
-        tutorial_board = pygame.Surface([0, 0])
-    collide_obj = pygame.sprite.spritecollide(hero, group, 0, 0)
-    BG_SCROLL_X += -hero.rect.x // (BLOCK_SIZE * 4)
-    BG_SCROLL_Y += -hero.rect.y // (BLOCK_SIZE * 4)
-    if collide_obj:
-        hero_x, hero_y = hero.vel_x, hero.vel_y
-        collide_obj = collide_obj[0]
-        for i in next_levels_pos.keys():
-            if next_levels_pos[i] == collide_obj.pos:
-                reset_level()
-                CURRENT_MAP, new_pos = generate_map_relation(collide_obj)
-                hp = hero.hp
-                set_stats()
-                hero, level_width, level_height, next_levels_pos, true_width, true_height = load_and_generate_map(
-                    CURRENT_MAP, new_pos)
-                hero.hp = hp
-                get_stats()
-                hero.vel_x, hero.vel_y = hero_x, hero_y
-                the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
-                if MAP_X == 3 and MAP_Y == 3:
-                    return True
-                return False
-
 
 while running:
     if CURRENT_MAP != "data\\maps\\boss_room.txt" and current_music != adventure_music and BOSS == 0:
