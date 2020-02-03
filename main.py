@@ -67,7 +67,7 @@ one block - 50x50
 IMAGES = dict()  # словарь для хранения изображений
 
 def update_leader_board():
-    filename = "data\\leader_board.txt"
+    filename = "data\\player_stats\\leader_board.txt"
     file = [line for line in open(filename, 'r')]
     file.append(f"{hero.name}-{str(hero.score)}\n")
     file1 = open(filename, 'w')
@@ -167,35 +167,35 @@ def new_game():
     can_attack = True
     jump_tick = 0
     gold = 0
-    score_text = create_text("Score: " + str(hero.score), os.path.join("data\\CenturyGothic.ttf"), 16,
+    score_text = create_text("Score: " + str(hero.score), os.path.join("data\\fonts\\CenturyGothic.ttf"), 16,
                              pygame.Color("white"))
     restart_all_levels()
     get_stats()
 
     tutorial_board = pygame.Surface([160, 120], pygame.SRCALPHA)
     pygame.draw.rect(tutorial_board, pygame.Color("brown"), (0, 0, 160, 120), 10)
-    tutorial_text = create_text("WASD           move", os.path.join("data\\CenturyGothic.ttf"), 16,
+    tutorial_text = create_text("WASD           move", os.path.join("data\\fonts\\CenturyGothic.ttf"), 16,
                                 pygame.Color("white"))
     tutorial_board.blit(tutorial_text, (10, 10))
-    tutorial_text = create_text("J            attack", os.path.join("data\\CenturyGothic.ttf"), 16,
+    tutorial_text = create_text("J            attack", os.path.join("data\\fonts\\CenturyGothic.ttf"), 16,
                                 pygame.Color("white"))
     tutorial_board.blit(tutorial_text, (10, 30))
-    tutorial_text = create_text("K            shield", os.path.join("data\\CenturyGothic.ttf"), 16,
+    tutorial_text = create_text("K            shield", os.path.join("data\\fonts\\CenturyGothic.ttf"), 16,
                                 pygame.Color("white"))
     tutorial_board.blit(tutorial_text, (10, 50))
-    tutorial_text = create_text("H talk(with trader)", os.path.join("data\\CenturyGothic.ttf"), 16,
+    tutorial_text = create_text("H talk(with trader)", os.path.join("data\\fonts\\CenturyGothic.ttf"), 16,
                                 pygame.Color("white"))
     tutorial_board.blit(tutorial_text, (10, 70))
-    tutorial_text = create_text("gopnik steals gold!", os.path.join("data\\CenturyGothic.ttf"), 16,
+    tutorial_text = create_text("gopnik steals gold!", os.path.join("data\\fonts\\CenturyGothic.ttf"), 16,
                                 pygame.Color("white"))
     tutorial_board.blit(tutorial_text, (10, 90))
     draw_overlapping_screen()
     hero_name_set()
 
 
-def get_stats():  # загружает данные героя с data/stats.txt
+def get_stats():  # загружает данные героя с data/player_stats\\stats.txt
     global gold
-    filename = os.path.join("data", "stats.txt")
+    filename = os.path.join("data", "player_stats\\stats.txt")
     temp = open(filename, 'r')
     file = [line.strip() for line in temp]
     hero.max_hp = int(file[0])
@@ -209,8 +209,8 @@ def get_stats():  # загружает данные героя с data/stats.txt
     hero.name = str(file[7])
 
 
-def set_stats():  # применяет к герою данные с data/stats.txt
-    filename = os.path.join("data", "stats.txt")
+def set_stats():  # применяет к герою данные с data/player_stats\\stats.txt
+    filename = os.path.join("data", "player_stats\\stats.txt")
     file = open(filename, 'w')
     file.writelines([str(hero.max_hp) + '\n', str(hero.attack_damage) + '\n', f"{str(hero.block_amount)}\n",
                      f"{str(hero.jump_max)}\n", str(gold) + '\n',
@@ -219,16 +219,16 @@ def set_stats():  # применяет к герою данные с data/stats.
 
 def save_game():  # сохраняет необходимые данные игры чтобы её можно было продолжить
     global gold, MAP_X, MAP_Y
-    file = open("data\\last_save.txt", 'w')
+    file = open("data\\player_stats\\last_save.txt", 'w')
     lines = [f"map_{str(MAP_Y)}_{str(MAP_X)}.txt\n" if MAP_X != 0 else "map.txt\n", f"{hero.rect.x // BLOCK_SIZE}\n",
              f"{hero.rect.y // BLOCK_SIZE}\n", f"{hero.hp}\n", f"{gold}\n", f"{hero.score}\n"]
     file.writelines(lines)
     set_stats()
 
 
-def load_save_game():  # загружает данные с data/last_save.txt
+def load_save_game():  # загружает данные с data/player_stats\\last_save.txt
     global hero, next_levels_pos, CURRENT_MAP, the_big_screen, true_width, true_height, level_width, level_height, gold, jump_tick, can_attack
-    file = [line.strip() for line in open("data\\last_save.txt", "r")]
+    file = [line.strip() for line in open("data\\player_stats\\last_save.txt", "r")]
     CURRENT_MAP = file[0]
     if CURRENT_MAP == "map_0_0.txt":
         CURRENT_MAP = "map.txt"
@@ -324,15 +324,15 @@ def start_menu():  # запускает стартовое меню
 
     main_surface = pygame.Surface([size[0], size[1]])
     tick = 0
-    fon = pygame.transform.scale(load_image('fon.jpg'), (size[0], size[1]))
-    intro_text = create_text("New game", "data\\CenturyGothic-Bold.ttf", 30, pygame.Color(18, 196, 30), 5)
-    intro_text_cover = create_text("New game", "data\\CenturyGothic-Bold.ttf", 39, pygame.Color(18, 196, 30), 5)
+    fon = pygame.transform.scale(load_image('backgrounds\\fon.jpg'), (size[0], size[1]))
+    intro_text = create_text("New game", "data\\fonts\\CenturyGothic-Bold.ttf", 30, pygame.Color(18, 196, 30), 5)
+    intro_text_cover = create_text("New game", "data\\fonts\\CenturyGothic-Bold.ttf", 39, pygame.Color(18, 196, 30), 5)
     start_button = Button(400 - intro_text.get_width() // 2, 380 - intro_text.get_height() // 2, intro_text,
                           intro_text_cover)
     continue_button_flag = False
-    if open("data\\last_save.txt", "r").read() != "":
-        continue_text = create_text("Continue", "data\\CenturyGothic-Bold.ttf", 30, pygame.Color(18, 196, 30), 5)
-        continue_text_cover = create_text("Continue", "data\\CenturyGothic-Bold.ttf", 39, pygame.Color(18, 196, 30), 5)
+    if open("data\\player_stats\\last_save.txt", "r").read() != "":
+        continue_text = create_text("Continue", "data\\fonts\\CenturyGothic-Bold.ttf", 30, pygame.Color(18, 196, 30), 5)
+        continue_text_cover = create_text("Continue", "data\\fonts\\CenturyGothic-Bold.ttf", 39, pygame.Color(18, 196, 30), 5)
         continue_button = Button(400 - continue_text.get_width() // 2, 440 - continue_text.get_height() // 2,
                                  continue_text,
                                  continue_text_cover)
@@ -348,9 +348,9 @@ def start_menu():  # запускает стартовое меню
                     if pygame.Rect.collidepoint(pygame.Rect(670, 410, 100, 100), x, y):  # launch leader_boards screen
                         leader_board()
                     if start_button.is_cover((x, y)):  # если new_game нажат то обнуляем всю статистику
-                        open("data\\stats.txt", "w").writelines(
+                        open("data\\player_stats\\stats.txt", "w").writelines(
                             ["100\n", "1\n", "0.2\n", "1\n", "0\n", "0\n", "1\n", "Player\n"])
-                        open("data\\last_save.txt", "w").write("")
+                        open("data\\player_stats\\last_save.txt", "w").write("")
                         new_game()
                         return True
                     if continue_button_flag:
@@ -376,19 +376,19 @@ def restart_all_levels():  # заново генерирует карты и в�
         "map.txt")
     tutorial_board = pygame.Surface([160, 120], pygame.SRCALPHA)
     pygame.draw.rect(tutorial_board, pygame.Color("brown"), (0, 0, 160, 120), 10)
-    tutorial_text = create_text("WASD           move", os.path.join("data\\CenturyGothic.ttf"), 16,
+    tutorial_text = create_text("WASD           move", os.path.join("data\\fonts\\CenturyGothic.ttf"), 16,
                                 pygame.Color("white"))
     tutorial_board.blit(tutorial_text, (10, 10))
-    tutorial_text = create_text("J            attack", os.path.join("data\\CenturyGothic.ttf"), 16,
+    tutorial_text = create_text("J            attack", os.path.join("data\\fonts\\CenturyGothic.ttf"), 16,
                                 pygame.Color("white"))
     tutorial_board.blit(tutorial_text, (10, 30))
-    tutorial_text = create_text("K            shield", os.path.join("data\\CenturyGothic.ttf"), 16,
+    tutorial_text = create_text("K            shield", os.path.join("data\\fonts\\CenturyGothic.ttf"), 16,
                                 pygame.Color("white"))
     tutorial_board.blit(tutorial_text, (10, 50))
-    tutorial_text = create_text("H talk(with trader)", os.path.join("data\\CenturyGothic.ttf"), 16,
+    tutorial_text = create_text("H talk(with trader)", os.path.join("data\\fonts\\CenturyGothic.ttf"), 16,
                                 pygame.Color("white"))
     tutorial_board.blit(tutorial_text, (10, 70))
-    tutorial_text = create_text("gopnik steals gold!", os.path.join("data\\CenturyGothic.ttf"), 16,
+    tutorial_text = create_text("gopnik steals gold!", os.path.join("data\\fonts\\CenturyGothic.ttf"), 16,
                                 pygame.Color("white"))
     tutorial_board.blit(tutorial_text, (10, 90))
     get_stats()
@@ -408,7 +408,7 @@ def DIED():  # экран смерти
     pygame.mixer.music.set_volume(1)
     pygame.mixer.music.play(-1)
     generate_maps()
-    text = create_text("Press f to continue", "data\\CenturyGothic-Italic.ttf", 19, pygame.Color("white"))
+    text = create_text("Press f to continue", "data\\fonts\\CenturyGothic-Italic.ttf.ttf", 19, pygame.Color("white"))
     tick = 0
     screen.fill((0, 0, 0))
     screen.blit(IMAGES["you_died"], (-45, -45))
@@ -449,7 +449,7 @@ def boss_alert():  # BOSS_FIGHT экран
         screen.blit(alert_text, (text_x, text_y))
 
     tick = 0
-    alert_text = create_text("BOSS FIGHT", "data\\CenturyGothic-Bold.ttf", 37, pygame.Color("white"))
+    alert_text = create_text("BOSS FIGHT", "data\\fonts\\CenturyGothic-Bold.ttf", 37, pygame.Color("white"))
     text_x, text_y = 400 - alert_text.get_width() // 2, 250 - alert_text.get_height() // 2
     while True:
         for event in pygame.event.get():
@@ -469,7 +469,7 @@ def win_screen():  # you win экран
     update_leader_board()
     congratulations_sound.play()
     BOSS = 0
-    text = create_text("Press f to continue", "data\\CenturyGothic-Italic.ttf", 19, pygame.Color("white"))
+    text = create_text("Press f to continue", "data\\fonts\\CenturyGothic-Italic.ttf", 19, pygame.Color("white"))
     tick = 0
     screen.fill((0, 0, 0))
     screen.blit(IMAGES["win_screen"], (25, 20))
@@ -497,7 +497,7 @@ def hero_name_set():  # экран для ввода имени героя
         screen.blit(fon, (-x // 30 - 15, -y // 30 - 150))
         main_surface = pygame.Surface([800, 1000], pygame.SRCALPHA)
         main_surface.blit(intro_text, (5, 3))
-        input_text = create_text(current_input, "data\\CenturyGothic.ttf", 30, pygame.Color("white"))
+        input_text = create_text(current_input, "data\\fonts\\CenturyGothic.ttf", 30, pygame.Color("white"))
         main_surface.blit(input_text, (intro_text.get_width() + 10, 5))
         if cursor_on:
             pygame.draw.rect(main_surface, pygame.Color("white"),
@@ -508,10 +508,10 @@ def hero_name_set():  # экран для ввода имени героя
             continue_button.draw(screen, (x, y))
 
     current_input = ""
-    fon = load_image("shop_bg.png")
-    intro_text = create_text("Input hero name: ", "data\\CenturyGothic.ttf", 30, pygame.Color("white"))
-    continue_text = create_text("Continue", "data\\CenturyGothic-Bold.ttf", 30, pygame.Color(18, 196, 30), 5)
-    continue_text_cover = create_text("Continue", "data\\CenturyGothic-Bold.ttf", 39, pygame.Color(18, 196, 30), 5)
+    fon = load_image("backgrounds\\shop_bg.png")
+    intro_text = create_text("Input hero name: ", "data\\fonts\\CenturyGothic.ttf", 30, pygame.Color("white"))
+    continue_text = create_text("Continue", "data\\fonts\\CenturyGothic-Bold.ttf", 30, pygame.Color(18, 196, 30), 5)
+    continue_text_cover = create_text("Continue", "data\\fonts\\CenturyGothic-Bold.ttf", 39, pygame.Color(18, 196, 30), 5)
     continue_button = Button(400 - continue_text.get_width() // 2, 440 - continue_text.get_height() // 2,
                              continue_text,
                              continue_text_cover)
@@ -567,16 +567,16 @@ def pause():  # экран паузы во время игры
     main_surface_dx = 200
     main_surface_dy = 125
     main_surface.fill(pygame.Color("blue"))
-    continue_text = create_text("Continue", "data\\CenturyGothic-Bold.ttf", 31, pygame.Color(18, 196, 30), 5)
-    continue_text_cover = create_text("Continue", "data\\CenturyGothic-Bold.ttf", 35, pygame.Color(18, 196, 30), 5)
+    continue_text = create_text("Continue", "data\\fonts\\CenturyGothic-Bold.ttf", 31, pygame.Color(18, 196, 30), 5)
+    continue_text_cover = create_text("Continue", "data\\fonts\\CenturyGothic-Bold.ttf", 35, pygame.Color(18, 196, 30), 5)
     continue_button = Button(200 - continue_text.get_width() // 2, 50 - continue_text.get_height() // 2, continue_text,
                              continue_text_cover)
-    restart_text = create_text("Restart", "data\\CenturyGothic-Bold.ttf", 31, pygame.Color(18, 196, 30), 5)
-    restart_text_cover = create_text("Restart", "data\\CenturyGothic-Bold.ttf", 35, pygame.Color(18, 196, 30), 5)
+    restart_text = create_text("Restart", "data\\fonts\\CenturyGothic-Bold.ttf", 31, pygame.Color(18, 196, 30), 5)
+    restart_text_cover = create_text("Restart", "data\\fonts\\CenturyGothic-Bold.ttf", 35, pygame.Color(18, 196, 30), 5)
     restart_button = Button(200 - restart_text.get_width() // 2, 120 - restart_text.get_height() // 2, restart_text,
                             restart_text_cover)
-    exit_text = create_text("Save and exit", "data\\CenturyGothic-Bold.ttf", 31, pygame.Color(18, 196, 30), 5)
-    exit_text_cover = create_text("Save and exit", "data\\CenturyGothic-Bold.ttf", 35, pygame.Color(18, 196, 30), 5)
+    exit_text = create_text("Save and exit", "data\\fonts\\CenturyGothic-Bold.ttf", 31, pygame.Color(18, 196, 30), 5)
+    exit_text_cover = create_text("Save and exit", "data\\fonts\\CenturyGothic-Bold.ttf", 35, pygame.Color(18, 196, 30), 5)
     exit_button = Button(200 - exit_text.get_width() // 2, 190 - exit_text.get_height() // 2, exit_text,
                          exit_text_cover)
     while True:
@@ -663,7 +663,7 @@ def shop():  # экран магазина
 
     carts = []
     current_cart_ind = 0
-    cart_info_copy = load_image("cart_info.png")
+    cart_info_copy = load_image("other\\cart_info.png")
     trader_sound.play()
 
     current_music = shop_music
@@ -680,8 +680,8 @@ def shop():  # экран магазина
         y -= 50
         shift = 30
         # buy button
-        button_text = create_text("Buy", "data\\CenturyGothic-Bold.ttf", 30, pygame.Color(18, 196, 30), 5)
-        button_text_cover = create_text("Buy", "data\\CenturyGothic-Bold.ttf", 35, pygame.Color(18, 196, 30), 5)
+        button_text = create_text("Buy", "data\\fonts\\CenturyGothic-Bold.ttf", 30, pygame.Color(18, 196, 30), 5)
+        button_text_cover = create_text("Buy", "data\\fonts\\CenturyGothic-Bold.ttf", 35, pygame.Color(18, 196, 30), 5)
         buy_button = Button(150 - button_text.get_width() // 2, 350 - button_text.get_height() // 2 - shift,
                             button_text,
                             button_text_cover)
@@ -689,10 +689,10 @@ def shop():  # экран магазина
         # для каждого случая отдельная информация
         if current_cart_ind == 0:
             cart_info.blit(IMAGES["health"], (30, 30 + shift))
-            text1 = create_text("Health up", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
-            text2 = create_text(f"Current: {str(hero.max_hp)}health", "data\\CenturyGothic.ttf", 20,
+            text1 = create_text("Health up", "data\\fonts\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text2 = create_text(f"Current: {str(hero.max_hp)}health", "data\\fonts\\CenturyGothic.ttf", 20,
                                 pygame.Color("white"))
-            text3 = create_text(f"Upgrade: +10health", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text3 = create_text(f"Upgrade: +10health", "data\\fonts\\CenturyGothic.ttf", 20, pygame.Color("white"))
             cart_info.blit(text1, (100, 55 + shift))
             cart_info.blit(text2, (20, 150 + shift))
             cart_info.blit(text3, (20, 185 + shift))
@@ -704,10 +704,10 @@ def shop():  # экран магазина
             cart_info.blit(pygame.transform.scale(gold_display(10), (153, 24)), (33, 95 + shift))
         if current_cart_ind == 1:
             cart_info.blit(IMAGES["sword"], (30, 30 + shift))
-            text1 = create_text("Damage up", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
-            text2 = create_text(f"Current: {str(hero.attack_damage)}damage", "data\\CenturyGothic.ttf", 20,
+            text1 = create_text("Damage up", "data\\fonts\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text2 = create_text(f"Current: {str(hero.attack_damage)}damage", "data\\fonts\\CenturyGothic.ttf", 20,
                                 pygame.Color("white"))
-            text3 = create_text(f"Upgrade: +1damage", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text3 = create_text(f"Upgrade: +1damage", "data\\fonts\\CenturyGothic.ttf", 20, pygame.Color("white"))
             cart_info.blit(text1, (100, 55 + shift))
             cart_info.blit(text2, (20, 150 + shift))
             cart_info.blit(text3, (20, 185 + shift))
@@ -718,10 +718,10 @@ def shop():  # экран магазина
             cart_info.blit(pygame.transform.scale(gold_display(20), (153, 24)), (33, 95 + shift))
         if current_cart_ind == 2:
             cart_info.blit(IMAGES["shield"], (30, 30 + shift))
-            text1 = create_text("Shield up", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
-            text2 = create_text(f"Current: {str(int(hero.block_amount * 100))}%shield", "data\\CenturyGothic.ttf", 20,
+            text1 = create_text("Shield up", "data\\fonts\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text2 = create_text(f"Current: {str(int(hero.block_amount * 100))}%shield", "data\\fonts\\CenturyGothic.ttf", 20,
                                 pygame.Color("white"))
-            text3 = create_text(f"Upgrade: +10%shield", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text3 = create_text(f"Upgrade: +10%shield", "data\\fonts\\CenturyGothic.ttf", 20, pygame.Color("white"))
             cart_info.blit(text1, (100, 55 + shift))
             cart_info.blit(text2, (20, 150 + shift))
             cart_info.blit(text3, (20, 185 + shift))
@@ -732,7 +732,7 @@ def shop():  # экран магазина
             cart_info.blit(pygame.transform.scale(gold_display(25), (153, 24)), (33, 95 + shift))
         if current_cart_ind == 3:
             cart_info.blit(IMAGES["double_jump"], (30, 30 + shift))
-            text1 = create_text("Double jump", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text1 = create_text("Double jump", "data\\fonts\\CenturyGothic.ttf", 20, pygame.Color("white"))
             cart_info.blit(text1, (100, 55 + shift))
             if click and gold >= 100 and buy_button.is_cover((x, y)) and hero.jump_max < 2:
                 hero.jump_max = 2
@@ -742,7 +742,7 @@ def shop():  # экран магазина
             cart_info.blit(pygame.transform.scale(gold_display(100), (153, 24)), (33, 95 + shift))
         if current_cart_ind == 4:
             cart_info.blit(IMAGES["triple_jump"], (30, 30 + shift))
-            text1 = create_text("Triple jump", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text1 = create_text("Triple jump", "data\\fonts\\CenturyGothic.ttf", 20, pygame.Color("white"))
             cart_info.blit(text1, (100, 55 + shift))
             if click and gold >= 200 and buy_button.is_cover((x, y)) and hero.jump_max < 3:
                 hero.jump_max = 3
@@ -752,10 +752,10 @@ def shop():  # экран магазина
             cart_info.blit(pygame.transform.scale(gold_display(200), (153, 24)), (33, 95 + shift))
         if current_cart_ind == 5:
             cart_info.blit(IMAGES["gopstop"], (30, 30 + shift))
-            text1 = create_text("Less gopstop", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
-            text2 = create_text(f"Current: {str(int(hero.gop_stop * 100))}%gopstop", "data\\CenturyGothic.ttf", 20,
+            text1 = create_text("Less gopstop", "data\\fonts\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text2 = create_text(f"Current: {str(int(hero.gop_stop * 100))}%gopstop", "data\\fonts\\CenturyGothic.ttf", 20,
                                 pygame.Color("white"))
-            text3 = create_text(f"Upgrade: -10%gopstop", "data\\CenturyGothic.ttf", 20, pygame.Color("white"))
+            text3 = create_text(f"Upgrade: -10%gopstop", "data\\fonts\\CenturyGothic.ttf", 20, pygame.Color("white"))
             cart_info.blit(text1, (100, 55 + shift))
             cart_info.blit(text2, (20, 150 + shift))
             cart_info.blit(text3, (20, 185 + shift))
@@ -778,7 +778,7 @@ def shop():  # экран магазина
         screen.blit(IMAGES["back_arrow"], (20, 20))
 
     # загрузка фона
-    fon = load_image("shop_bg.png")
+    fon = load_image("backgrounds\\shop_bg.png")
     upgrade_tree = pygame.Surface([500, 500], pygame.SRCALPHA)
     # инициализация карт
     # +health(0)
@@ -847,15 +847,15 @@ def shop():  # экран магазина
 def leader_board():  # экран лидеров
     scroll_y = 0
     tick = 0
-    fon = load_image("shop_bg.png")
+    fon = load_image("backgrounds\\shop_bg.png")
     screen.fill(pygame.Color("black"))
-    filename = os.path.join("data", "leader_board.txt")
+    filename = os.path.join("data", "player_stats\\leader_board.txt")
     with open(filename, 'r') as mapFile:
         leaders = [line.strip() for line in mapFile]
     leaders = list(map(lambda x: x.split('-'), leaders))
     leaders.sort(key=lambda x: int(x[1]), reverse=True)
     leaders.insert(0, ['Player', 'Score'])
-    font = pygame.font.Font("data\\CenturyGothic.ttf", 30)
+    font = pygame.font.Font("data\\fonts\\CenturyGothic.ttf", 30)
     all_text = []
     for i in range(len(leaders)):
         text1 = font.render(leaders[i][0], 1, pygame.Color("white"))
@@ -1039,7 +1039,7 @@ def load_and_generate_map(filename, new_pos=None, player_flag_saved=False, pl_x=
 
 def load_image(name, colorkey=None):
     #  загружает изображения
-    fullname = os.path.join('data', name)
+    fullname = os.path.join('data', 'images', name)
     image = pygame.image.load(fullname).convert_alpha()
     if colorkey is not None:
         if colorkey == -1:
@@ -1089,7 +1089,7 @@ class Invisible_Rect(pygame.sprite.Sprite):  # невидимый прямоуг
 
 
 class Block(pygame.sprite.Sprite):
-    image = load_image("block.png")
+    image = load_image("textures\\block.png")
 
     #  создает блок(квадрат со спрайтами на каждой стороне для легкой проверки столкновений)
 
@@ -1109,7 +1109,7 @@ class Block(pygame.sprite.Sprite):
 
 
 class Platform(pygame.sprite.Sprite):
-    image = load_image("platform.png")
+    image = load_image("textures\\platform.png")
 
     #  создает платформу, прямоугольник через которой игрок проваливается при зажатии s
 
@@ -1138,7 +1138,7 @@ class Border(pygame.sprite.Sprite):
 
 
 class Prujinka(pygame.sprite.Sprite):
-    image = load_image("prujinka.png")
+    image = load_image("textures\\prujinka.png")
 
     #  прямоугольник как платформа. дает прыжок при контакте
 
@@ -1202,7 +1202,7 @@ class Next_level_horizontal_border(pygame.sprite.Sprite):
 def gold_display(gold):
     # surface, на котором иконка золота и золото
     coin_image = load_image(os.path.join("entity_images\\Coin.png")).convert_alpha()
-    gold_text = create_text(str(gold), os.path.join("data\\CenturyGothic-Bold.ttf"), 16, pygame.Color("white"))
+    gold_text = create_text(str(gold), os.path.join("data\\fonts\\CenturyGothic-Bold.ttf"), 16, pygame.Color("white"))
     gold_surface = pygame.Surface([102, 16], pygame.SRCALPHA)
     gold_surface.blit(coin_image, (0, 0))
     gold_surface.blit(gold_text, (22, -3))
@@ -1384,9 +1384,9 @@ class OmniTurret(pygame.sprite.Sprite):
         pygame.draw.rect(health_surface, pygame.Color("green"),
                          (140, 0, round(round(2 * self.max_hp)),
                           health_surface.get_height()), 1)
-        hp_text = create_text("{}/{}".format(self.hp, self.max_hp), "data\\CenturyGothic-Bold.ttf", 20,
+        hp_text = create_text("{}/{}".format(self.hp, self.max_hp), "data\\fonts\\CenturyGothic-Bold.ttf", 20,
                               pygame.Color("white"))
-        boss_text = create_text("OMNI-TURRET:", "data\\CenturyGothic-Bold.ttf", 20,
+        boss_text = create_text("OMNI-TURRET:", "data\\fonts\\CenturyGothic-Bold.ttf", 20,
                                 pygame.Color("white"))
         health_surface.blit(boss_text, (0, 0))
         health_surface.blit(hp_text, (146, 2))
@@ -2416,7 +2416,7 @@ class Player(pygame.sprite.Sprite):
             pygame.draw.rect(health_surface, pygame.Color("green"),
                              (0, 0, round(health_surface.get_width() / self.max_hp * self.hp),
                               health_surface.get_height()))
-        hp_text = create_text("{}/{}".format(self.hp, self.max_hp), "data\\CenturyGothic-Bold.ttf", 20,
+        hp_text = create_text("{}/{}".format(self.hp, self.max_hp), "data\\fonts\\CenturyGothic-Bold.ttf", 20,
                               pygame.Color("white"))
         health_surface.blit(hp_text, (6, 2))
         return health_surface
@@ -2490,30 +2490,40 @@ all_projectiles_sprite = pygame.sprite.Group()
 
 
 def init_images():  # создание изображений
-    pause_icon = load_image("pause-icon.png").convert_alpha()  # 64x64
-    back_arrow_icon = load_image("back_arrow.png").convert_alpha()
-    leader_board_icon = load_image("leader_board_icon.png", (145, 160, 161)).convert_alpha()
-    health_icon = load_image("health.png").convert_alpha()
-    health_half_icon = load_image("health_half.png").convert_alpha()
-    sword_icon = load_image("sword.png").convert_alpha()
-    sword_half_icon = load_image("sword_half.png").convert_alpha()
-    shield_icon = load_image("shield.png").convert_alpha()
-    shield_half_icon = load_image("shield_half.png").convert_alpha()
-    double_jump_icon = load_image("double_jump.png").convert_alpha()
-    double_jump_half_icon = load_image("double_jump_half.png").convert_alpha()
-    triple_jump = load_image("triple_jump.png").convert_alpha()
-    triple_jump_half = load_image("triple_jump_half.png").convert_alpha()
-    gopstop = load_image("gopstop.png").convert_alpha()
-    gopstop_half = load_image("gopstop_half.png").convert_alpha()
+    # menu icons
+    pause_icon = load_image("icons\\pause-icon.png").convert_alpha()  # 64x64
+    back_arrow_icon = load_image("icons\\back_arrow.png").convert_alpha()
+    leader_board_icon = load_image("icons\\leader_board_icon.png", (145, 160, 161)).convert_alpha()
+    sound_off = load_image("icons\\sound_off.png").convert_alpha()
+    sound_on = load_image("icons\\sound_on.png").convert_alpha()
+    # shop icons
+    health_icon = load_image("shop_icons\\health.png").convert_alpha()
+    health_half_icon = load_image("shop_icons\\health_half.png").convert_alpha()
+    sword_icon = load_image("shop_icons\\sword.png").convert_alpha()
+    sword_half_icon = load_image("shop_icons\\sword_half.png").convert_alpha()
+    shield_icon = load_image("shop_icons\\shield.png").convert_alpha()
+    shield_half_icon = load_image("shop_icons\\shield_half.png").convert_alpha()
+    double_jump_icon = load_image("shop_icons\\double_jump.png").convert_alpha()
+    double_jump_half_icon = load_image("shop_icons\\double_jump_half.png").convert_alpha()
+    triple_jump = load_image("shop_icons\\triple_jump.png").convert_alpha()
+    triple_jump_half = load_image("shop_icons\\triple_jump_half.png").convert_alpha()
+    gopstop = load_image("shop_icons\\gopstop.png").convert_alpha()
+    gopstop_half = load_image("shop_icons\\gopstop_half.png").convert_alpha()
+    # backgrounds
+    bg1 = load_image("backgrounds\\bg1.png")
+    bg2 = load_image("backgrounds\\bg2.png")
+    # other
+    you_died = load_image("other\\YOU_DIED.png").convert_alpha()
+    win_screen = load_image("other\\win-screen.png")
+    tablicka = load_image("other\\tablicka.png").convert_alpha()
 
-    you_died = load_image("YOU_DIED.png").convert_alpha()
-    tablicka = load_image("tablicka.png").convert_alpha()
-    win_screen = load_image("win-screen.png")
-    bg1 = load_image("bg1.png")
-    bg2 = load_image("bg2.png")
+    #
+
     IMAGES["pause-icon"] = pause_icon
     IMAGES["leader_board"] = leader_board_icon
     IMAGES["back_arrow"] = back_arrow_icon
+    IMAGES["sound_off"] = sound_off
+    IMAGES["sound_on"] = sound_on
     IMAGES["health"] = health_icon
     IMAGES["health_half"] = health_half_icon
     IMAGES["sword"] = sword_icon
@@ -2648,7 +2658,7 @@ while running:
         hero.vel_y = - int(FALLING_MAX * 2.5)
     if pygame.sprite.spritecollideany(hero, all_npcs) and keys[pygame.K_h]:  # магазин
         shop()
-    score_text = create_text("Score: " + str(hero.score), os.path.join("data\\CenturyGothic.ttf"), 16,
+    score_text = create_text("Score: " + str(hero.score), os.path.join("data\\fonts\\CenturyGothic.ttf"), 16,
                              pygame.Color("white"))  # текст очков. Обновляем
     damage_check()  # все функции обновления
     all_hero.update()
