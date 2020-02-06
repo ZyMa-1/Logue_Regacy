@@ -1,5 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="120a799b-c274-45db-9ddb-f3414177d060" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/data/maps/map_1_2.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/maps/map_1_2.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/maps/map_1_3.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/maps/map_1_3.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/maps/map_2_1.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/maps/map_2_1.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/maps/map_2_2.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/maps/map_2_2.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/maps/map_2_3.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/maps/map_2_3.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/maps/map_3_1.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/maps/map_3_1.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/maps/map_3_2.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/maps/map_3_2.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/player_stats/leader_board.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/player_stats/leader_board.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/player_stats/stats.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/player_stats/stats.txt" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
@@ -7,5 +24,23 @@
   <component name="PropertiesComponent">
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+  </component>
+  <component name="RunDashboard">
+    <option name="ruleStates">
+      <list>
+        <RuleState>
+          <option name="name" value="ConfigurationTypeDashboardGroupingRule" />
+        </RuleState>
+        <RuleState>
+          <option name="name" value="StatusDashboardGroupingRule" />
+        </RuleState>
+      </list>
+    </option>
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <servers />
   </component>
 </project>
