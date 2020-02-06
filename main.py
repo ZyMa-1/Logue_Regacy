@@ -408,7 +408,7 @@ def DIED():  # экран смерти
     pygame.mixer.music.set_volume(1)
     pygame.mixer.music.play(-1)
     generate_maps()
-    text = create_text("Press f to continue", "data\\fonts\\CenturyGothic-Italic.ttf.ttf", 19, pygame.Color("white"))
+    text = create_text("Press f to continue", "data\\fonts\\CenturyGothic-Italic.ttf", 19, pygame.Color("white"))
     tick = 0
     screen.fill((0, 0, 0))
     screen.blit(IMAGES["you_died"], (-45, -45))
