@@ -227,7 +227,7 @@ def save_game():  # сохраняет необходимые данные иг�
 
 
 def load_save_game():  # загружает данные с data/player_stats\\last_save.txt
-    global hero, next_levels_pos, CURRENT_MAP, the_big_screen, true_width, true_height, level_width, level_height, gold, jump_tick, can_attack
+    global hero, next_levels_pos, CURRENT_MAP, the_big_screen, true_width, true_height, level_width, level_height, gold, jump_tick, can_attack, tutorial_board
     file = [line.strip() for line in open("data\\player_stats\\last_save.txt", "r")]
     CURRENT_MAP = file[0]
     if CURRENT_MAP == "map_0_0.txt":
@@ -237,6 +237,7 @@ def load_save_game():  # загружает данные с data/player_stats\\l
                                                                                                       player_flag_saved=True,
                                                                                                       pl_x=int(file[1]),
                                                                                                       pl_y=int(file[2]))
+    tutorial_board = pygame.Surface([0, 0])
     the_big_screen = pygame.Surface([level_width * BLOCK_SIZE, level_height * BLOCK_SIZE])
     hero.hp = int(file[3])
     gold = int(file[4])
